@@ -139,12 +139,20 @@
     margin-bottom: 12px;
     flex-shrink: 0;
   }
-  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  video { display: none; }
+  #camCanvas { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #000; }
   #faceBadge {
     position: absolute; top: 10px; left: 10px;
     padding: 4px 10px; border-radius: 8px;
     background: rgba(0,0,0,0.6);
     font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  }
+  #zoomBadge {
+    position: absolute; top: 10px; right: 10px;
+    padding: 4px 10px; border-radius: 8px;
+    background: rgba(0,0,0,0.6);
+    font-size: 15px; font-weight: 700; letter-spacing: 1px;
+    color: var(--accent);
   }
 
   /* Calibration */
@@ -158,6 +166,11 @@
     background: var(--steel); border-radius: 6px; overflow: hidden; margin-bottom: 14px;
   }
   #calFill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+  #calWarn {
+    color: #e8c54a; font-size: 17px; font-weight: 700;
+    text-align: center; min-height: 22px; margin-bottom: 6px;
+  }
+  .status.error { color: var(--down); font-weight: 700; }
   @media (orientation: landscape) {
     #calBody { flex-direction: row; justify-content: center; align-items: center; gap: 24px; height: 100%; }
     #calLeft { max-width: 380px; }
@@ -282,12 +295,16 @@
         <span>Beep when eyes drop</span>
         <button class="chip" id="soundToggle" style="flex:0 0 90px">On</button>
       </div>
+      <div class="toggle-row" style="margin-top:12px">
+        <span>Auto-zoom to face</span>
+        <button class="chip sel" id="zoomToggle" style="flex:0 0 90px">On</button>
+      </div>
     </div>
     <div class="card">
       <h2>Setup</h2>
       <ol>
         <li>Prop the phone at the player's eye height</li>
-        <li>Player stands 3 to 6 feet away, facing the screen</li>
+        <li>Player stands 3 to 10 feet away, facing the screen</li>
         <li>Good light on the face, no bright window behind</li>
       </ol>
     </div>
@@ -303,6 +320,7 @@
       <p id="calWho"></p>
       <p class="calPrompt" id="calPrompt">Look at the phone</p>
       <p class="calSub" id="calSub">Stand ready with your stick. Eyes on the screen.</p>
+      <p id="calWarn"></p>
       <div id="calBar"><div id="calFill"></div></div>
       <button class="big" id="calBtn">Capture: eyes up</button>
       <button class="big ghost" id="calBackBtn" style="margin-top:10px">Back</button>
@@ -310,7 +328,9 @@
     </div>
     <div id="videoWrap">
       <video id="video" autoplay playsinline muted></video>
+      <canvas id="camCanvas" width="480" height="480"></canvas>
       <span id="faceBadge">Looking for face...</span>
+      <span id="zoomBadge" style="display:none"></span>
     </div>
   </div>
 </div>
@@ -571,6 +591,27 @@ let eyeState = "up";
 let pendingState = null;
 let pendingSince = 0;
 
+// Auto-zoom face tracking
+const CANVAS_SIZE = 480;
+const MIN_CROP = 180;          // px in the source frame; floor against over-zoom pixelation
+let camCanvas = null, ctx = null;
+let autoZoom = true;
+let trackMode = "search";      // "search" = scan full frame, "track" = follow the crop
+let crop = null;               // { cx, cy, size } in source video pixels
+let missCount = 0;
+let zoomFactor = 1;
+
+// Light and framing checks
+const LIGHT_MIN = 60;          // mean luma (0-255) required to trust the eye signal
+const LIGHT_CLEAR = 75;        // banner clears above this, so it does not flicker
+const FACE_MIN_PX = 44;        // face height in source pixels below which eyes are unreadable
+let lightLevel = null;         // smoothed mean luma of what the model sees
+let lastLightTs = 0;
+let lightSampleCanvas = null, lightSampleCtx = null;
+let lastFaceSizePx = null;
+let lightWarnOn = false;
+let prepRunning = false;       // 5-second get-set countdown in progress
+
 let drill = null;
 let wakeLock = null;
 
@@ -631,15 +672,24 @@ $("soundToggle").addEventListener("click", () => {
 });
 $("soundToggle").classList.add("sel");
 
+$("zoomToggle").addEventListener("click", () => {
+  autoZoom = !autoZoom;
+  $("zoomToggle").textContent = autoZoom ? "On" : "Off";
+  $("zoomToggle").classList.toggle("sel", autoZoom);
+  if (!autoZoom) { trackMode = "search"; crop = null; zoomFactor = 1; }
+});
+
 async function ensureCamera() {
   if (stream) return true;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 1280 } },
+      video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false
     });
     $("video").srcObject = stream;
     await $("video").play();
+    camCanvas = $("camCanvas");
+    ctx = camCanvas.getContext("2d");
     running = true;
     requestAnimationFrame(loop);
     return true;
@@ -697,11 +747,86 @@ function computeSignals(lm, blendCats) {
 function processFrame() {
   const video = $("video");
   if (!landmarker || video.readyState < 2) return;
-  const res = landmarker.detectForVideo(video, performance.now());
-  if (res.faceLandmarks && res.faceLandmarks.length > 0 &&
-      res.faceBlendshapes && res.faceBlendshapes.length > 0) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const ts = performance.now();
+
+  let res = null;
+  let srcIsCrop = false;
+
+  if (autoZoom && trackMode === "track" && crop) {
+    // TRACK: crop a square around the last known face position, upscale it
+    // onto the canvas, and run the landmarker on the enlarged face. At 8+
+    // feet this gives the model a face several times bigger than it would
+    // see in the full frame, which is what makes the gaze signal usable.
+    const half = crop.size / 2;
+    ctx.drawImage(video, crop.cx - half, crop.cy - half, crop.size, crop.size, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    res = landmarker.detectForVideo(camCanvas, ts);
+    srcIsCrop = true;
+  } else {
+    // SEARCH: scan the full frame to find or reacquire the face.
+    drawFullFrame(video, vw, vh);
+    res = landmarker.detectForVideo(video, ts);
+  }
+
+  const found = res && res.faceLandmarks && res.faceLandmarks.length > 0 &&
+                res.faceBlendshapes && res.faceBlendshapes.length > 0;
+
+  if (found) {
+    const lm = res.faceLandmarks[0];
+
+    // Face bounding box in source pixel coordinates
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const pt of lm) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+    let fx, fy, fw, fh;
+    if (srcIsCrop) {
+      const x0 = crop.cx - crop.size / 2;
+      const y0 = crop.cy - crop.size / 2;
+      fx = x0 + minX * crop.size; fw = (maxX - minX) * crop.size;
+      fy = y0 + minY * crop.size; fh = (maxY - minY) * crop.size;
+    } else {
+      fx = minX * vw; fw = (maxX - minX) * vw;
+      fy = minY * vh; fh = (maxY - minY) * vh;
+    }
+
+    // Where the crop wants to be: face centered, with room around it
+    const faceSize = Math.max(fw, fh);
+    const maxCrop = Math.min(vw, vh);
+    const targetSize = Math.min(maxCrop, Math.max(MIN_CROP, faceSize * 2.4));
+    let tcx = fx + fw / 2;
+    let tcy = fy + fh / 2 - faceSize * 0.1; // bias up slightly to keep forehead in frame
+    const tHalf = targetSize / 2;
+    tcx = Math.min(Math.max(tcx, tHalf), vw - tHalf);
+    tcy = Math.min(Math.max(tcy, tHalf), vh - tHalf);
+
+    if (!crop) {
+      crop = { cx: tcx, cy: tcy, size: targetSize };
+    } else {
+      // Deadband plus smoothing: ignore tiny drift so the zoom does not
+      // breathe, then glide toward the target so movement is followed
+      // without jitter reaching the landmarks.
+      const drift = Math.hypot(tcx - crop.cx, tcy - crop.cy);
+      const sizeDrift = Math.abs(targetSize - crop.size);
+      const follow = drift > crop.size * 0.06 ? 0.2 : 0.05;
+      crop.cx += (tcx - crop.cx) * follow;
+      crop.cy += (tcy - crop.cy) * follow;
+      crop.size += (targetSize - crop.size) * (sizeDrift > crop.size * 0.1 ? 0.15 : 0.03);
+      const half2 = crop.size / 2;
+      crop.cx = Math.min(Math.max(crop.cx, half2), vw - half2);
+      crop.cy = Math.min(Math.max(crop.cy, half2), vh - half2);
+    }
+    trackMode = "track";
+    missCount = 0;
+    zoomFactor = Math.min(vw, vh) / crop.size;
+    lastFaceSizePx = faceSize;
+
     faceVisible = true;
-    const s = computeSignals(res.faceLandmarks[0], res.faceBlendshapes[0].categories);
+    const s = computeSignals(lm, res.faceBlendshapes[0].categories);
     smoothHead = smoothHead === null ? s.head : smoothHead * 0.7 + s.head * 0.3;
     // Freeze the gaze signal during blinks: closed lids read as "down".
     if (s.blink < 0.5) {
@@ -709,16 +834,82 @@ function processFrame() {
     }
     if (calCapturing && s.blink < 0.5) calSamples.push({ head: s.head, gaze: s.gaze });
   } else {
-    faceVisible = false;
+    missCount++;
+    if (trackMode === "track" && missCount > 2 && crop) {
+      // Face slipped out of the crop: widen it before giving up, so a
+      // fast lateral move is caught without dropping to full search.
+      const maxCrop = Math.min(vw, vh);
+      crop.size = Math.min(maxCrop, crop.size * 1.35);
+      const half3 = crop.size / 2;
+      crop.cx = Math.min(Math.max(crop.cx, half3), vw - half3);
+      crop.cy = Math.min(Math.max(crop.cy, half3), vh - half3);
+    }
+    if (missCount > 8) {
+      trackMode = "search";
+      crop = null;
+      zoomFactor = 1;
+    }
+    // Only report the face as gone after a few missed frames, so a single
+    // dropped detection mid-move does not count against the player.
+    if (missCount > 4) faceVisible = false;
   }
+}
+
+function drawFullFrame(video, vw, vh) {
+  const s = Math.min(vw, vh);
+  ctx.drawImage(video, (vw - s) / 2, (vh - s) / 2, s, s, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+}
+
+// Light meter: every 400ms, downsample what the model is seeing (the face
+// crop when tracking, the scene when searching) and take the mean luminance.
+function sampleLight() {
+  const now = performance.now();
+  if (now - lastLightTs < 400 || !ctx) return;
+  lastLightTs = now;
+  if (!lightSampleCanvas) {
+    lightSampleCanvas = document.createElement("canvas");
+    lightSampleCanvas.width = 32;
+    lightSampleCanvas.height = 32;
+    lightSampleCtx = lightSampleCanvas.getContext("2d", { willReadFrequently: true });
+  }
+  try {
+    lightSampleCtx.drawImage(camCanvas, 0, 0, 32, 32);
+    const d = lightSampleCtx.getImageData(0, 0, 32, 32).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      sum += 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+    }
+    const mean = sum / (d.length / 4);
+    lightLevel = lightLevel === null ? mean : lightLevel * 0.6 + mean * 0.4;
+  } catch (e) { /* canvas not ready */ }
 }
 
 function loop() {
   if (!running) return;
   processFrame();
+  sampleLight();
   if ($("calScreen").classList.contains("active")) {
     $("faceBadge").textContent = faceVisible ? "Face locked" : "Looking for face...";
     $("faceBadge").style.color = faceVisible ? "var(--up)" : "var(--down)";
+    const zb = $("zoomBadge");
+    if (autoZoom && trackMode === "track" && zoomFactor > 1.15) {
+      zb.style.display = "";
+      zb.textContent = "Zoom " + zoomFactor.toFixed(1) + "x";
+    } else {
+      zb.style.display = "none";
+    }
+    // Live warnings, with hysteresis on the light banner so it does not flicker
+    if (lightLevel !== null) {
+      if (!lightWarnOn && lightLevel < LIGHT_MIN) lightWarnOn = true;
+      if (lightWarnOn && lightLevel > LIGHT_CLEAR) lightWarnOn = false;
+    }
+    if (lightWarnOn) {
+      $("calWarn").textContent = "Too dark. Add light on the player's face, or turn them toward a light source.";
+    } else if (faceVisible && lastFaceSizePx !== null && lastFaceSizePx < FACE_MIN_PX) {
+      $("calWarn").textContent = "Too far from the camera to read the eyes. Move a couple feet closer.";
+    } else {
+      $("calWarn").textContent = "";
+    }
   }
   if (drillActive) drillTick();
   requestAnimationFrame(loop);
@@ -730,14 +921,18 @@ function startCalibrationFlow() {
   const p = selectedPlayer();
   calPhase = "up";
   calBase = null;
+  prepRunning = false;
   $("calWho").textContent = p ? "Calibrating " + p.name : "";
   $("calPrompt").textContent = "Look at the phone";
-  $("calSub").textContent = "Stand ready with your stick. Eyes on the screen.";
+  $("calSub").textContent = "Tap the button, then you have 5 seconds to get into position.";
   $("calBtn").textContent = "Capture: eyes up";
+  $("calBtn").disabled = false;
   $("calStatus").textContent = "";
+  $("calStatus").className = "status";
+  $("calWarn").textContent = "";
   $("calFill").style.width = "0%";
   show("calScreen");
-  document.getElementById("videoWrap").appendChild($("video"));
+  document.getElementById("videoWrap").appendChild($("camCanvas"));
 }
 
 $("calBackBtn").addEventListener("click", () => {
@@ -745,16 +940,67 @@ $("calBackBtn").addEventListener("click", () => {
   renderPlayers();
 });
 
+function calBtnLabel() {
+  return calPhase === "up" ? "Capture: eyes up" : "Capture: eyes down";
+}
+function calFail(msg) {
+  const st = $("calStatus");
+  st.textContent = msg;
+  st.className = "status error";
+  $("calBtn").disabled = false;
+  $("calBtn").textContent = calBtnLabel();
+  $("calFill").style.width = "0%";
+  beep(220, 0.3, 0.25);
+}
+function calInfo(msg) {
+  const st = $("calStatus");
+  st.textContent = msg;
+  st.className = "status";
+}
+
 $("calBtn").addEventListener("click", () => {
-  if (calCapturing) return;
-  if (!faceVisible) {
-    $("calStatus").textContent = "No face in view. Step into frame first.";
-    return;
-  }
+  if (calCapturing || prepRunning) return;
+  // 5-second get-set countdown so the player can tap the button and step
+  // back into position before the capture starts.
+  prepRunning = true;
+  $("calBtn").disabled = true;
+  calInfo("Step back into position...");
+  let n = 5;
+  $("calBtn").textContent = "Get set \u00b7 " + n;
+  beep(520, 0.08, 0.15);
+  const iv = setInterval(() => {
+    n--;
+    if (n > 0) {
+      $("calBtn").textContent = "Get set \u00b7 " + n;
+      beep(520, 0.08, 0.15);
+    } else {
+      clearInterval(iv);
+      prepRunning = false;
+      // Validate conditions now that the player is in position
+      if (!faceVisible) {
+        calFail("No face in view when the timer ended. Step into the frame, then tap the button again.");
+        return;
+      }
+      if (lightLevel !== null && lightLevel < LIGHT_MIN) {
+        calFail("Too dark to read the eyes. Add light on the player's face, then tap the button again.");
+        return;
+      }
+      if (lastFaceSizePx !== null && lastFaceSizePx < FACE_MIN_PX) {
+        calFail("Too far from the camera. Move a couple feet closer, then tap the button again.");
+        return;
+      }
+      beep(1100, 0.2, 0.2);
+      runCapture();
+    }
+  }, 1000);
+});
+
+function runCapture() {
   calSamples = [];
   calCapturing = true;
   $("calBtn").disabled = true;
-  $("calStatus").textContent = "Hold it...";
+  $("calBtn").textContent = "Hold it...";
+  calInfo("Hold it...");
   const t0 = performance.now();
   const capDur = 1800;
   const tick = () => {
@@ -763,9 +1009,10 @@ $("calBtn").addEventListener("click", () => {
     if (p < 1) { requestAnimationFrame(tick); return; }
     calCapturing = false;
     $("calBtn").disabled = false;
+    $("calBtn").textContent = calBtnLabel();
     $("calFill").style.width = "0%";
     if (calSamples.length < 10) {
-      $("calStatus").textContent = "Lost the face. Try that capture again.";
+      calFail("Lost the face during the capture. Hold still, stay in frame, and tap the button to retry.");
       return;
     }
     const avg = {
@@ -777,14 +1024,14 @@ $("calBtn").addEventListener("click", () => {
       calPhase = "down";
       $("calPrompt").textContent = "Look down at your puck";
       $("calSub").textContent = "Drop your eyes to the puck the way you would mid-drill.";
-      $("calBtn").textContent = "Capture: eyes down";
-      $("calStatus").textContent = "Eyes-up captured.";
+      $("calBtn").textContent = calBtnLabel();
+      calInfo("Eyes-up captured. Now capture eyes-down.");
       beep(880, 0.1, 0.15);
     } else {
       const headSep = avg.head - calBase.head;
       const gazeSep = avg.gaze - calBase.gaze;
       if (headSep < 0.04 && gazeSep < 0.10) {
-        $("calStatus").textContent = "That read almost the same as eyes-up. Really look down at the puck, then recapture.";
+        calFail("The eyes-down reading was almost the same as eyes-up, so the app can't tell them apart yet. Really look down at the puck this time, then tap the button to recapture.");
         return;
       }
       // Save to the selected player
@@ -800,7 +1047,7 @@ $("calBtn").addEventListener("click", () => {
     }
   };
   requestAnimationFrame(tick);
-});
+}
 
 // Down score: max of the head channel and the gaze channel, each scaled by
 // its own calibrated separation, with floors so a weak channel cannot
@@ -852,7 +1099,7 @@ async function startDrill() {
   };
   eyeState = "up";
   pendingState = null;
-  $("drillThumb").appendChild($("video"));
+  $("drillThumb").appendChild($("camCanvas"));
   show("drillScreen");
   drillActive = true;
   try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
