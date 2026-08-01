@@ -31,32 +31,32 @@
     display: none;
     flex-direction: column;
     align-items: center;
-    padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     overflow-y: auto;
   }
   .screen.active { display: flex; }
 
   h1 {
-    font-weight: 900; font-size: 44px; letter-spacing: 1px; line-height: 1;
-    text-transform: uppercase; margin-top: 12px;
+    font-weight: 900; font-size: clamp(30px, 8vmin, 44px); letter-spacing: 1px; line-height: 1;
+    text-transform: uppercase; margin-top: 8px;
   }
   h1 .up { color: var(--up); }
-  .tag { color: var(--dim); font-size: 18px; margin: 6px 0 20px; text-align: center; }
+  .tag { color: var(--dim); font-size: 18px; margin: 6px 0 16px; text-align: center; }
 
   .card {
     background: var(--steel);
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 16px;
+    padding: 14px 16px;
     width: 100%; max-width: 420px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .card h2 {
     font-size: 15px; letter-spacing: 2px; text-transform: uppercase;
-    color: var(--accent); font-weight: 700; margin-bottom: 10px;
+    color: var(--accent); font-weight: 700; margin-bottom: 8px;
   }
-  .card ol { padding-left: 20px; font-size: 18px; line-height: 1.5; font-weight: 500; }
-  .card ol li { margin-bottom: 4px; }
+  .card ol { padding-left: 20px; font-size: 17px; line-height: 1.45; font-weight: 500; }
+  .card ol li { margin-bottom: 3px; }
 
   .row { display: flex; gap: 8px; }
   .chip {
@@ -69,17 +69,52 @@
 
   .toggle-row {
     display: flex; justify-content: space-between; align-items: center;
-    font-size: 20px; font-weight: 700;
+    font-size: 19px; font-weight: 700;
   }
+
+  /* Player list */
+  .playerRow {
+    display: flex; flex-direction: column;
+    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
+    cursor: pointer;
+  }
+  .playerRow.sel { border-color: var(--accent); }
+  .pTop { display: flex; align-items: center; gap: 10px; }
+  .pActions { display: none; gap: 8px; margin-top: 10px; }
+  .playerRow.sel .pActions { display: flex; }
+  .pActions .miniBtn { flex: 1; color: var(--text); }
+  .pName { flex: 1; min-width: 0; }
+  .pName .nm { font-size: 21px; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .playerRow.sel .pName .nm { color: var(--accent); }
+  .pName .meta { font-size: 14px; color: var(--dim); }
+  .pName .meta.warn { color: #e8c54a; }
+  .miniBtn {
+    padding: 8px 12px; border-radius: 8px;
+    background: transparent; border: 1px solid var(--line);
+    color: var(--dim); font-family: inherit; font-size: 15px; font-weight: 700;
+    letter-spacing: 0.5px; cursor: pointer; flex-shrink: 0;
+  }
+  .miniBtn.del { padding: 8px 11px; font-size: 17px; line-height: 1; }
+  #newName {
+    flex: 1; min-width: 0;
+    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-family: inherit; font-size: 19px; font-weight: 500;
+    padding: 10px 12px; outline: none;
+  }
+  #newName:focus { border-color: var(--accent); }
+  #newName::placeholder { color: var(--dim); }
+  .emptyHint { color: var(--dim); font-size: 16px; padding: 4px 2px 8px; }
 
   button.big {
     width: 100%; max-width: 420px;
-    padding: 18px 0;
+    padding: 16px 0;
     border: none; border-radius: 14px;
     background: var(--accent); color: #06121c;
-    font-family: inherit; font-size: 26px; font-weight: 900;
+    font-family: inherit; font-size: 24px; font-weight: 900;
     letter-spacing: 1px; text-transform: uppercase;
     cursor: pointer; margin-top: 4px;
+    flex-shrink: 0;
   }
   button.big:disabled { opacity: 0.5; }
   button.ghost {
@@ -87,7 +122,13 @@
     border: 1px solid var(--line);
   }
 
-  .status { color: var(--dim); font-size: 17px; margin-top: 12px; text-align: center; min-height: 22px; }
+  .status { color: var(--dim); font-size: 17px; margin-top: 10px; text-align: center; min-height: 22px; }
+
+  #setupCards { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  @media (orientation: landscape) {
+    #setupCards { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 12px; align-items: stretch; max-width: 880px; }
+    #setupCards .card { width: calc(50% - 8px); max-width: 420px; margin-bottom: 0; }
+  }
 
   /* Video */
   #videoWrap {
@@ -95,7 +136,8 @@
     aspect-ratio: 3/4;
     background: #000; border-radius: 14px; overflow: hidden;
     border: 1px solid var(--line);
-    margin-bottom: 14px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
   }
   video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
   #faceBadge {
@@ -106,57 +148,111 @@
   }
 
   /* Calibration */
-  .calPrompt { font-size: 34px; font-weight: 900; text-transform: uppercase; text-align: center; line-height: 1.1; }
-  .calSub { color: var(--dim); font-size: 18px; text-align: center; margin: 8px 0 16px; }
+  #calBody { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  #calLeft { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 420px; }
+  #calWho { font-size: 16px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+  .calPrompt { font-size: clamp(26px, 6vmin, 34px); font-weight: 900; text-transform: uppercase; text-align: center; line-height: 1.1; }
+  .calSub { color: var(--dim); font-size: 17px; text-align: center; margin: 8px 0 12px; }
   #calBar {
     width: 100%; max-width: 420px; height: 12px;
-    background: var(--steel); border-radius: 6px; overflow: hidden; margin-bottom: 16px;
+    background: var(--steel); border-radius: 6px; overflow: hidden; margin-bottom: 14px;
   }
   #calFill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+  @media (orientation: landscape) {
+    #calBody { flex-direction: row; justify-content: center; align-items: center; gap: 24px; height: 100%; }
+    #calLeft { max-width: 380px; }
+    #videoWrap { width: auto; height: min(78vh, 420px); aspect-ratio: 4/3; margin-bottom: 0; }
+  }
 
   /* Drill */
-  #drillScreen { padding: 0; justify-content: center; transition: background 0.15s; }
+  #drillScreen { padding: 0; justify-content: center; transition: background 0.15s; overflow: hidden; }
   #drillScreen.state-up { background: #0d2a18; }
   #drillScreen.state-down { background: #33110e; }
   #drillScreen.state-none { background: #2a2410; }
+  #drillWho {
+    position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    font-size: 18px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; color: var(--dim);
+  }
+  #drillMain { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   #stateWord {
-    font-size: min(22vw, 110px); font-weight: 900; letter-spacing: 2px;
-    text-transform: uppercase; line-height: 1;
+    font-size: clamp(40px, 18vmin, 120px); font-weight: 900; letter-spacing: 2px;
+    text-transform: uppercase; line-height: 1; text-align: center;
   }
   .state-up #stateWord { color: var(--up); }
   .state-down #stateWord { color: var(--down); }
-  .state-none #stateWord { color: #e8c54a; font-size: min(12vw, 60px); }
+  .state-none #stateWord { color: #e8c54a; font-size: clamp(28px, 10vmin, 60px); }
   #drillTimer {
-    font-size: min(30vw, 150px); font-weight: 900; line-height: 1;
+    font-size: clamp(60px, 32vmin, 170px); font-weight: 900; line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  #livePct { font-size: 30px; font-weight: 700; color: var(--dim); margin-top: 6px; }
-  #livePct b { color: var(--text); font-size: 36px; }
+  #livePct { font-size: clamp(20px, 6vmin, 32px); font-weight: 700; color: var(--dim); margin-top: 2px; }
+  #livePct b { color: var(--text); font-size: 1.2em; }
+  @media (orientation: landscape) {
+    #drillMain { flex-direction: row; gap: 6vw; align-items: center; }
+    #drillLeftCol { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  }
   #drillThumb {
-    position: fixed; right: 12px; bottom: max(12px, env(safe-area-inset-bottom));
-    width: 96px; aspect-ratio: 3/4;
+    position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom));
+    width: clamp(72px, 12vmax, 110px); aspect-ratio: 3/4;
     border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
     opacity: 0.85;
   }
+  @media (orientation: landscape) { #drillThumb { aspect-ratio: 4/3; } }
   #stopBtn {
-    position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom));
+    position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
     padding: 10px 18px; border-radius: 10px;
     background: rgba(0,0,0,0.4); border: 1px solid var(--line);
     color: var(--dim); font-family: inherit; font-size: 18px; font-weight: 700;
   }
   #countdownNum {
-    font-size: min(50vw, 260px); font-weight: 900; color: var(--accent); line-height: 1;
+    font-size: clamp(120px, 55vmin, 280px); font-weight: 900; color: var(--accent); line-height: 1;
   }
+  #countWho { font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; color: var(--dim); margin-bottom: 8px; }
 
   /* Results */
-  .bigStat { text-align: center; margin: 10px 0 4px; }
-  .bigStat .num { font-size: 96px; font-weight: 900; line-height: 1; color: var(--up); }
-  .bigStat .lbl { font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
-  .statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; margin: 14px 0; }
+  .bigStat { text-align: center; margin: 8px 0 2px; }
+  .bigStat .num { font-size: clamp(64px, 16vmin, 96px); font-weight: 900; line-height: 1; color: var(--up); }
+  .bigStat .lbl { font-size: 17px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+  .statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; margin: 12px 0; }
+  @media (orientation: landscape) { .statGrid { grid-template-columns: repeat(4, 1fr); max-width: 720px; } }
   .statCell { background: var(--steel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center; }
-  .statCell .num { font-size: 34px; font-weight: 900; }
-  .statCell .lbl { font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
-  #verdict { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 10px; }
+  .statCell .num { font-size: 32px; font-weight: 900; }
+  .statCell .lbl { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+  #verdict { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
+  #bestNote { font-size: 17px; color: var(--dim); text-align: center; margin-bottom: 8px; min-height: 20px; }
+
+  /* History */
+  #histBody { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; }
+  #histSummary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; margin: 10px 0; }
+  #histChartCard { width: 100%; }
+  #histChart {
+    display: flex; align-items: flex-end; gap: 3px;
+    height: 130px; padding-top: 6px;
+  }
+  #histChart .bar {
+    flex: 1; max-width: 28px; min-width: 6px;
+    border-radius: 4px 4px 0 0;
+    background: var(--up);
+  }
+  #histChart .bar.mid { background: #e8c54a; }
+  #histChart .bar.low { background: var(--down); }
+  .chartAxis { display: flex; justify-content: space-between; font-size: 13px; color: var(--dim); margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; }
+  #histList { width: 100%; }
+  .histRow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .histRow .when { flex: 1; }
+  .histRow .when .d { font-size: 18px; font-weight: 700; line-height: 1.1; }
+  .histRow .when .sub { font-size: 14px; color: var(--dim); }
+  .histRow .pctBig { font-size: 30px; font-weight: 900; width: 76px; text-align: right; }
+  .histRow .pctBig.hi { color: var(--up); }
+  .histRow .pctBig.mid { color: #e8c54a; }
+  .histRow .pctBig.low { color: var(--down); }
+  @media (orientation: landscape) {
+    #histBody { max-width: 720px; }
+  }
 </style>
 </head>
 <body>
@@ -165,69 +261,89 @@
 <div class="screen active" id="setupScreen">
   <h1>Heads <span class="up">Up</span> Trainer</h1>
   <p class="tag">Stickhandle with your eyes off the puck</p>
-  <div class="card">
-    <h2>Setup</h2>
-    <ol>
-      <li>Prop the phone at the player's eye height</li>
-      <li>Player stands 4 to 8 feet away, facing the screen</li>
-      <li>Good light on the face, no bright window behind</li>
-    </ol>
-  </div>
-  <div class="card">
-    <h2>Drill length</h2>
-    <div class="row" id="durationRow">
-      <button class="chip" data-sec="30">0:30</button>
-      <button class="chip sel" data-sec="60">1:00</button>
-      <button class="chip" data-sec="90">1:30</button>
-      <button class="chip" data-sec="120">2:00</button>
+  <div id="setupCards">
+    <div class="card">
+      <h2>Players</h2>
+      <div id="playerList"></div>
+      <div class="row" style="margin-top:8px">
+        <input id="newName" placeholder="Add a player" maxlength="20" autocomplete="off">
+        <button class="chip" id="addPlayerBtn" style="flex:0 0 80px">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Drill length</h2>
+      <div class="row" id="durationRow">
+        <button class="chip" data-sec="30">0:30</button>
+        <button class="chip sel" data-sec="60">1:00</button>
+        <button class="chip" data-sec="90">1:30</button>
+        <button class="chip" data-sec="120">2:00</button>
+      </div>
+      <div class="toggle-row" style="margin-top:12px">
+        <span>Beep when eyes drop</span>
+        <button class="chip" id="soundToggle" style="flex:0 0 90px">On</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Setup</h2>
+      <ol>
+        <li>Prop the phone at the player's eye height</li>
+        <li>Player stands 3 to 6 feet away, facing the screen</li>
+        <li>Good light on the face, no bright window behind</li>
+      </ol>
     </div>
   </div>
-  <div class="card">
-    <div class="toggle-row">
-      <span>Beep when eyes drop</span>
-      <button class="chip" id="soundToggle" style="flex:0 0 90px">On</button>
-    </div>
-  </div>
-  <button class="big" id="startCamBtn">Start camera</button>
-  <p class="status" id="setupStatus">Loading face tracking...</p>
+  <button class="big" id="startBtn" disabled>Select a player</button>
+  <p class="status" id="setupStatus">Loading eye tracking...</p>
 </div>
 
 <!-- CALIBRATION -->
 <div class="screen" id="calScreen">
-  <p class="calPrompt" id="calPrompt">Look at the phone</p>
-  <p class="calSub" id="calSub">Stand ready with your stick. Hold still for a moment.</p>
-  <div id="calBar"><div id="calFill"></div></div>
-  <div id="videoWrap">
-    <video id="video" autoplay playsinline muted></video>
-    <span id="faceBadge">Looking for face...</span>
+  <div id="calBody">
+    <div id="calLeft">
+      <p id="calWho"></p>
+      <p class="calPrompt" id="calPrompt">Look at the phone</p>
+      <p class="calSub" id="calSub">Stand ready with your stick. Eyes on the screen.</p>
+      <div id="calBar"><div id="calFill"></div></div>
+      <button class="big" id="calBtn">Capture: eyes up</button>
+      <button class="big ghost" id="calBackBtn" style="margin-top:10px">Back</button>
+      <p class="status" id="calStatus"></p>
+    </div>
+    <div id="videoWrap">
+      <video id="video" autoplay playsinline muted></video>
+      <span id="faceBadge">Looking for face...</span>
+    </div>
   </div>
-  <button class="big" id="calBtn">Capture: eyes up</button>
-  <button class="big ghost" id="calBackBtn" style="margin-top:10px">Back</button>
-  <p class="status" id="calStatus"></p>
 </div>
 
 <!-- COUNTDOWN -->
 <div class="screen" id="countScreen" style="justify-content:center">
+  <div id="countWho"></div>
   <div id="countdownNum">3</div>
 </div>
 
 <!-- DRILL -->
 <div class="screen" id="drillScreen">
-  <div id="stateWord">Heads up</div>
-  <div id="drillTimer">1:00</div>
-  <div id="livePct">Eyes up <b>--%</b></div>
+  <div id="drillWho"></div>
+  <div id="drillMain">
+    <div id="drillLeftCol">
+      <div id="stateWord">Heads up</div>
+      <div id="livePct">Eyes up <b>--%</b></div>
+    </div>
+    <div id="drillTimer">1:00</div>
+  </div>
   <div id="drillThumb"></div>
   <button id="stopBtn">End early</button>
 </div>
 
 <!-- RESULTS -->
 <div class="screen" id="resultScreen">
-  <h1 style="font-size:34px">Session done</h1>
+  <h1 style="font-size:32px" id="resultTitle">Session done</h1>
   <div class="bigStat">
     <div class="num" id="rPct">--%</div>
     <div class="lbl">Time with eyes up</div>
   </div>
   <p id="verdict"></p>
+  <p id="bestNote"></p>
   <div class="statGrid">
     <div class="statCell"><div class="num" id="rDrops">0</div><div class="lbl">Looks down</div></div>
     <div class="statCell"><div class="num" id="rStreak">0s</div><div class="lbl">Longest eyes-up run</div></div>
@@ -235,39 +351,227 @@
     <div class="statCell"><div class="num" id="rLost">0s</div><div class="lbl">Face not visible</div></div>
   </div>
   <button class="big" id="againBtn">Run it again</button>
-  <button class="big ghost" id="recalBtn" style="margin-top:10px">Recalibrate</button>
+  <div class="row" style="width:100%;max-width:420px;margin-top:10px">
+    <button class="big ghost" id="histFromResultBtn" style="margin-top:0">History</button>
+    <button class="big ghost" id="switchBtn" style="margin-top:0">Switch player</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="historyScreen">
+  <h1 style="font-size:32px" id="histTitle">History</h1>
+  <div id="histBody">
+    <div id="histSummary">
+      <div class="statCell"><div class="num" id="hBest">--</div><div class="lbl">Best</div></div>
+      <div class="statCell"><div class="num" id="hAvg">--</div><div class="lbl">Average</div></div>
+      <div class="statCell"><div class="num" id="hCount">0</div><div class="lbl">Sessions</div></div>
+    </div>
+    <div class="card" id="histChartCard">
+      <h2>Eyes-up % by session</h2>
+      <div id="histChart"></div>
+      <div class="chartAxis"><span id="hAxisL"></span><span id="hAxisR"></span></div>
+    </div>
+    <div id="histList"></div>
+    <button class="big ghost" id="histBackBtn">Back</button>
+    <button class="big ghost" id="histClearBtn" style="margin-top:10px">Clear history</button>
+  </div>
 </div>
 
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
 const $ = id => document.getElementById(id);
-const screens = ["setupScreen","calScreen","countScreen","drillScreen","resultScreen"];
+const screens = ["setupScreen","calScreen","countScreen","drillScreen","resultScreen","historyScreen"];
 function show(id) {
   screens.forEach(s => $(s).classList.toggle("active", s === id));
 }
 
-// ---------- State ----------
+// ---------- Storage ----------
+// localStorage on the hosted site; in-memory fallback where it is blocked
+// (for example previewing inside a sandboxed frame). In fallback mode the
+// app still works, but players reset on reload.
+const store = (() => {
+  let mem = {};
+  let ok = false;
+  try {
+    localStorage.setItem("hut_test", "1");
+    localStorage.removeItem("hut_test");
+    ok = true;
+  } catch (e) { ok = false; }
+  return {
+    persistent: ok,
+    get(k) {
+      try { return ok ? JSON.parse(localStorage.getItem(k)) : (mem[k] ?? null); }
+      catch (e) { return null; }
+    },
+    set(k, v) {
+      try { if (ok) localStorage.setItem(k, JSON.stringify(v)); else mem[k] = v; }
+      catch (e) { mem[k] = v; }
+    }
+  };
+})();
+
+// ---------- Players ----------
+// player: { id, name, cal: {base:{head,gaze}, down:{head,gaze}} | null, sessions: [{t,pct,drops,streakMs,durSec}] }
+const PKEY = "hut_players_v1";
+let players = store.get(PKEY) || [];
+let selectedId = store.get("hut_selected") || null;
+if (selectedId && !players.find(p => p.id === selectedId)) selectedId = null;
+
+function savePlayers() {
+  store.set(PKEY, players);
+  store.set("hut_selected", selectedId);
+}
+function selectedPlayer() {
+  return players.find(p => p.id === selectedId) || null;
+}
+function bestPct(p) {
+  if (!p.sessions || p.sessions.length === 0) return null;
+  return Math.max(...p.sessions.map(s => s.pct));
+}
+
+function renderPlayers() {
+  const list = $("playerList");
+  list.textContent = "";
+  if (players.length === 0) {
+    const hint = document.createElement("p");
+    hint.className = "emptyHint";
+    hint.textContent = "No players yet. Add a name below.";
+    list.appendChild(hint);
+  }
+  for (const p of players) {
+    const row = document.createElement("div");
+    row.className = "playerRow" + (p.id === selectedId ? " sel" : "");
+
+    const top = document.createElement("div");
+    top.className = "pTop";
+
+    const nameBox = document.createElement("div");
+    nameBox.className = "pName";
+    const nm = document.createElement("div");
+    nm.className = "nm";
+    nm.textContent = p.name;
+    const meta = document.createElement("div");
+    const best = bestPct(p);
+    if (p.cal) {
+      meta.className = "meta";
+      meta.textContent = "Calibrated" +
+        (best !== null ? " \u00b7 best " + best + "%" : "") +
+        (p.sessions && p.sessions.length ? " \u00b7 " + p.sessions.length + " session" + (p.sessions.length === 1 ? "" : "s") : "");
+    } else {
+      meta.className = "meta warn";
+      meta.textContent = "Needs calibration";
+    }
+    nameBox.appendChild(nm);
+    nameBox.appendChild(meta);
+    top.appendChild(nameBox);
+
+    const del = document.createElement("button");
+    del.className = "miniBtn del";
+    del.textContent = "\u00d7";
+    del.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (!confirm("Remove " + p.name + "? Their calibration and results will be deleted.")) return;
+      players = players.filter(x => x.id !== p.id);
+      if (selectedId === p.id) selectedId = null;
+      savePlayers();
+      renderPlayers();
+    });
+    top.appendChild(del);
+    row.appendChild(top);
+
+    // Action buttons shown on the selected row
+    const actions = document.createElement("div");
+    actions.className = "pActions";
+
+    const hist = document.createElement("button");
+    hist.className = "miniBtn";
+    hist.textContent = "History";
+    hist.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      selectedId = p.id;
+      savePlayers();
+      openHistory();
+    });
+    actions.appendChild(hist);
+
+    const recal = document.createElement("button");
+    recal.className = "miniBtn";
+    recal.textContent = p.cal ? "Recalibrate" : "Calibrate";
+    recal.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      selectedId = p.id;
+      savePlayers();
+      renderPlayers();
+      await beginCalibration();
+    });
+    actions.appendChild(recal);
+    row.appendChild(actions);
+
+    row.addEventListener("click", () => {
+      selectedId = p.id;
+      savePlayers();
+      renderPlayers();
+    });
+    list.appendChild(row);
+  }
+  updateStartBtn();
+}
+
+function updateStartBtn() {
+  const p = selectedPlayer();
+  const btn = $("startBtn");
+  if (!modelReady) {
+    btn.disabled = true;
+    btn.textContent = "Loading...";
+  } else if (!p) {
+    btn.disabled = true;
+    btn.textContent = "Select a player";
+  } else if (!p.cal) {
+    btn.disabled = false;
+    btn.textContent = "Calibrate " + p.name;
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Start drill \u00b7 " + p.name;
+  }
+}
+
+$("addPlayerBtn").addEventListener("click", addPlayer);
+$("newName").addEventListener("keydown", (e) => { if (e.key === "Enter") addPlayer(); });
+function addPlayer() {
+  const name = $("newName").value.trim();
+  if (!name) return;
+  const p = { id: "p" + Date.now(), name, cal: null, sessions: [] };
+  players.push(p);
+  selectedId = p.id;
+  $("newName").value = "";
+  savePlayers();
+  renderPlayers();
+}
+
+// ---------- Session state ----------
 let landmarker = null;
+let modelReady = false;
 let stream = null;
-let running = false;          // detection loop on
+let running = false;
 let drillActive = false;
 let durationSec = 60;
 let soundOn = true;
 
-let calUp = null;             // metric when looking at camera
-let calDown = null;           // metric when looking at puck
-let calPhase = "up";          // "up" | "down"
+let base = null;      // active calibration in use for the current drill
+let down = null;
+let calPhase = "up";
 let calSamples = [];
 let calCapturing = false;
 
-let smoothMetric = null;
+let smoothHead = null;
+let smoothGaze = null;
 let faceVisible = false;
-let eyeState = "up";          // current classified state during drill
+let eyeState = "up";
 let pendingState = null;
 let pendingSince = 0;
 
-let drill = null;             // per-session stats
+let drill = null;
 let wakeLock = null;
 
 // ---------- Audio ----------
@@ -300,15 +604,17 @@ function beep(freq, dur, vol) {
         delegate: "GPU"
       },
       runningMode: "VIDEO",
-      numFaces: 1
+      numFaces: 1,
+      outputFaceBlendshapes: true
     });
-    $("setupStatus").textContent = "";
-    $("startCamBtn").disabled = false;
+    modelReady = true;
+    $("setupStatus").textContent = store.persistent ? "" :
+      "Note: storage is blocked in this preview, so players will not survive a reload. They will on the hosted site.";
+    updateStartBtn();
   } catch (e) {
-    $("setupStatus").textContent = "Face tracking failed to load. Check the connection and reload.";
+    $("setupStatus").textContent = "Eye tracking failed to load. Check the connection and reload.";
   }
 })();
-$("startCamBtn").disabled = true;
 
 // ---------- Setup controls ----------
 document.querySelectorAll("#durationRow .chip").forEach(btn => {
@@ -325,80 +631,118 @@ $("soundToggle").addEventListener("click", () => {
 });
 $("soundToggle").classList.add("sel");
 
-$("startCamBtn").addEventListener("click", async () => {
-  initAudio();
-  $("setupStatus").textContent = "Requesting camera...";
+async function ensureCamera() {
+  if (stream) return true;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 960 }, height: { ideal: 1280 } },
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 1280 } },
       audio: false
     });
     $("video").srcObject = stream;
     await $("video").play();
     running = true;
     requestAnimationFrame(loop);
-    startCalibration();
+    return true;
   } catch (e) {
     $("setupStatus").textContent = "Camera blocked. Allow camera access and make sure the page is on https.";
+    return false;
+  }
+}
+
+$("startBtn").addEventListener("click", async () => {
+  const p = selectedPlayer();
+  if (!p || !modelReady) return;
+  initAudio();
+  $("setupStatus").textContent = "Starting camera...";
+  const ok = await ensureCamera();
+  if (!ok) return;
+  $("setupStatus").textContent = "";
+  if (p.cal) {
+    startCountdown();
+  } else {
+    startCalibrationFlow();
   }
 });
 
-// ---------- Metric ----------
-// Nose position relative to the eye line, normalized by face height.
-// Changes monotonically as the head pitches down toward the puck.
-// Calibration makes the sign and scale irrelevant.
-function computeMetric(lm) {
-  const eyeY = (lm[33].y + lm[263].y) / 2;   // outer eye corners
-  const noseY = lm[1].y;                      // nose tip
-  const topY = lm[10].y;                      // forehead
-  const chinY = lm[152].y;                    // chin
-  const faceH = Math.max(0.02, Math.abs(chinY - topY));
-  return (noseY - eyeY) / faceH;
+async function beginCalibration() {
+  const p = selectedPlayer();
+  if (!p || !modelReady) return;
+  initAudio();
+  $("setupStatus").textContent = "Starting camera...";
+  const ok = await ensureCamera();
+  if (!ok) return;
+  $("setupStatus").textContent = "";
+  startCalibrationFlow();
 }
 
-function processFrame(ts) {
+// ---------- Signals ----------
+function computeSignals(lm, blendCats) {
+  // Head pitch proxy: nose tip vs eye line, normalized by face height.
+  const eyeY = (lm[33].y + lm[263].y) / 2;
+  const noseY = lm[1].y;
+  const topY = lm[10].y;
+  const chinY = lm[152].y;
+  const faceH = Math.max(0.02, Math.abs(chinY - topY));
+  const head = (noseY - eyeY) / faceH;
+
+  // Eyeball direction from blendshapes, relative to the head.
+  const g = {};
+  for (const c of blendCats) g[c.categoryName] = c.score;
+  const gaze = ((g.eyeLookDownLeft || 0) + (g.eyeLookDownRight || 0)) / 2
+             - ((g.eyeLookUpLeft || 0) + (g.eyeLookUpRight || 0)) / 2;
+  const blink = Math.max(g.eyeBlinkLeft || 0, g.eyeBlinkRight || 0);
+  return { head, gaze, blink };
+}
+
+function processFrame() {
   const video = $("video");
   if (!landmarker || video.readyState < 2) return;
-  const res = landmarker.detectForVideo(video, ts);
-  if (res.faceLandmarks && res.faceLandmarks.length > 0) {
+  const res = landmarker.detectForVideo(video, performance.now());
+  if (res.faceLandmarks && res.faceLandmarks.length > 0 &&
+      res.faceBlendshapes && res.faceBlendshapes.length > 0) {
     faceVisible = true;
-    const m = computeMetric(res.faceLandmarks[0]);
-    smoothMetric = smoothMetric === null ? m : smoothMetric * 0.7 + m * 0.3;
-    if (calCapturing) calSamples.push(m);
+    const s = computeSignals(res.faceLandmarks[0], res.faceBlendshapes[0].categories);
+    smoothHead = smoothHead === null ? s.head : smoothHead * 0.7 + s.head * 0.3;
+    // Freeze the gaze signal during blinks: closed lids read as "down".
+    if (s.blink < 0.5) {
+      smoothGaze = smoothGaze === null ? s.gaze : smoothGaze * 0.7 + s.gaze * 0.3;
+    }
+    if (calCapturing && s.blink < 0.5) calSamples.push({ head: s.head, gaze: s.gaze });
   } else {
     faceVisible = false;
   }
 }
 
-let lastTs = 0;
-function loop(ts) {
+function loop() {
   if (!running) return;
-  processFrame(performance.now());
+  processFrame();
   if ($("calScreen").classList.contains("active")) {
     $("faceBadge").textContent = faceVisible ? "Face locked" : "Looking for face...";
     $("faceBadge").style.color = faceVisible ? "var(--up)" : "var(--down)";
   }
-  if (drillActive) drillTick(ts);
-  lastTs = ts;
+  if (drillActive) drillTick();
   requestAnimationFrame(loop);
 }
 
 // ---------- Calibration ----------
-function startCalibration() {
+let calBase = null; // working values during a calibration pass
+function startCalibrationFlow() {
+  const p = selectedPlayer();
   calPhase = "up";
-  calUp = null; calDown = null;
+  calBase = null;
+  $("calWho").textContent = p ? "Calibrating " + p.name : "";
   $("calPrompt").textContent = "Look at the phone";
   $("calSub").textContent = "Stand ready with your stick. Eyes on the screen.";
   $("calBtn").textContent = "Capture: eyes up";
   $("calStatus").textContent = "";
   $("calFill").style.width = "0%";
   show("calScreen");
-  // Move the live video element into the calibration screen
-  $("videoWrap").appendChild($("video"));
+  document.getElementById("videoWrap").appendChild($("video"));
 }
 
 $("calBackBtn").addEventListener("click", () => {
   show("setupScreen");
+  renderPlayers();
 });
 
 $("calBtn").addEventListener("click", () => {
@@ -424,21 +768,33 @@ $("calBtn").addEventListener("click", () => {
       $("calStatus").textContent = "Lost the face. Try that capture again.";
       return;
     }
-    const avg = calSamples.reduce((a,b) => a+b, 0) / calSamples.length;
+    const avg = {
+      head: calSamples.reduce((a,b) => a + b.head, 0) / calSamples.length,
+      gaze: calSamples.reduce((a,b) => a + b.gaze, 0) / calSamples.length
+    };
     if (calPhase === "up") {
-      calUp = avg;
+      calBase = avg;
       calPhase = "down";
       $("calPrompt").textContent = "Look down at your puck";
-      $("calSub").textContent = "Drop your eyes to where the puck sits.";
+      $("calSub").textContent = "Drop your eyes to the puck the way you would mid-drill.";
       $("calBtn").textContent = "Capture: eyes down";
       $("calStatus").textContent = "Eyes-up captured.";
       beep(880, 0.1, 0.15);
     } else {
-      calDown = avg;
-      if (Math.abs(calDown - calUp) < 0.06) {
-        $("calStatus").textContent = "Too close to the eyes-up reading. Look further down at the puck, then recapture.";
+      const headSep = avg.head - calBase.head;
+      const gazeSep = avg.gaze - calBase.gaze;
+      if (headSep < 0.04 && gazeSep < 0.10) {
+        $("calStatus").textContent = "That read almost the same as eyes-up. Really look down at the puck, then recapture.";
         return;
       }
+      // Save to the selected player
+      const player = selectedPlayer();
+      if (player) {
+        player.cal = { base: calBase, down: avg };
+        savePlayers();
+      }
+      base = calBase;
+      down = avg;
       beep(880, 0.1, 0.15);
       startCountdown();
     }
@@ -446,14 +802,26 @@ $("calBtn").addEventListener("click", () => {
   requestAnimationFrame(tick);
 });
 
-// Score: 0 = eyes up baseline, 1 = eyes on puck baseline
-function eyeScore() {
-  if (smoothMetric === null || calUp === null || calDown === null) return 0;
-  return (smoothMetric - calUp) / (calDown - calUp);
+// Down score: max of the head channel and the gaze channel, each scaled by
+// its own calibrated separation, with floors so a weak channel cannot
+// become hair-trigger sensitive.
+function downScore() {
+  if (smoothHead === null || base === null || down === null) return 0;
+  const headSep = down.head - base.head;
+  const gazeSep = down.gaze - base.gaze;
+  const headScale = headSep > 0.04 ? headSep : 0.12;
+  const gazeScale = gazeSep > 0.10 ? gazeSep : 0.30;
+  const hScore = (smoothHead - base.head) / headScale;
+  const gScore = (smoothGaze - base.gaze) / gazeScale;
+  return Math.max(hScore, gScore);
 }
 
 // ---------- Countdown ----------
 function startCountdown() {
+  const p = selectedPlayer();
+  // Load the player's saved calibration for this run
+  if (p && p.cal) { base = p.cal.base; down = p.cal.down; }
+  $("countWho").textContent = p ? p.name : "";
   show("countScreen");
   let n = 3;
   $("countdownNum").textContent = n;
@@ -473,16 +841,17 @@ function startCountdown() {
 
 // ---------- Drill ----------
 async function startDrill() {
+  const p = selectedPlayer();
+  $("drillWho").textContent = p ? p.name : "";
   drill = {
     upMs: 0, downMs: 0, lostMs: 0,
     drops: 0,
-    curUpStart: null, longestUpMs: 0,
+    curUpStart: performance.now(), longestUpMs: 0,
     startTime: performance.now(),
     lastFrame: performance.now()
   };
   eyeState = "up";
   pendingState = null;
-  drill.curUpStart = performance.now();
   $("drillThumb").appendChild($("video"));
   show("drillScreen");
   drillActive = true;
@@ -497,19 +866,17 @@ function drillTick() {
   const elapsed = now - drill.startTime;
   const remain = Math.max(0, durationSec * 1000 - elapsed);
 
-  // Classify with hysteresis + 150ms dwell
   let target;
   if (!faceVisible) {
     target = "none";
   } else {
-    const s = eyeScore();
+    const s = downScore();
     if (eyeState === "down") target = s < 0.4 ? "up" : "down";
     else target = s > 0.6 ? "down" : "up";
   }
   if (target !== eyeState) {
     if (pendingState !== target) { pendingState = target; pendingSince = now; }
-    else if (now - pendingSince > 150) {
-      // commit transition
+    else if (now - pendingSince > 180) {
       if (eyeState === "up" && drill.curUpStart !== null) {
         drill.longestUpMs = Math.max(drill.longestUpMs, now - drill.curUpStart);
         drill.curUpStart = null;
@@ -523,12 +890,10 @@ function drillTick() {
     pendingState = null;
   }
 
-  // Accumulate time
   if (eyeState === "up") drill.upMs += dt;
   else if (eyeState === "down") drill.downMs += dt;
   else drill.lostMs += dt;
 
-  // Render
   const scr = $("drillScreen");
   scr.className = "screen active state-" + eyeState;
   $("stateWord").textContent = eyeState === "up" ? "Heads up" : eyeState === "down" ? "Eyes down" : "Can't see face";
@@ -555,6 +920,18 @@ function endDrill() {
 
   const tracked = drill.upMs + drill.downMs;
   const pct = tracked > 0 ? Math.round(100 * drill.upMs / tracked) : 0;
+
+  const p = selectedPlayer();
+  let prevBest = null;
+  if (p) {
+    prevBest = bestPct(p);
+    p.sessions = p.sessions || [];
+    p.sessions.push({ t: Date.now(), pct, drops: drill.drops, streakMs: Math.round(drill.longestUpMs), durSec: durationSec });
+    if (p.sessions.length > 100) p.sessions = p.sessions.slice(-100);
+    savePlayers();
+  }
+
+  $("resultTitle").textContent = p ? p.name + ": session done" : "Session done";
   $("rPct").textContent = pct + "%";
   $("rDrops").textContent = drill.drops;
   $("rStreak").textContent = (drill.longestUpMs / 1000).toFixed(1) + "s";
@@ -565,6 +942,10 @@ function endDrill() {
     pct >= 75 ? "Strong session. Cut down those quick peeks." :
     pct >= 50 ? "Getting there. Trust your hands more." :
     "Lots of puck-watching. Slow the hands down and keep the eyes up.";
+  $("bestNote").textContent =
+    prevBest === null ? "First session on the books." :
+    pct > prevBest ? "New personal best. Previous best was " + prevBest + "%." :
+    "Personal best: " + Math.max(prevBest, pct) + "%.";
   show("resultScreen");
 }
 
@@ -572,10 +953,110 @@ $("againBtn").addEventListener("click", () => {
   initAudio();
   startCountdown();
 });
-$("recalBtn").addEventListener("click", () => {
-  initAudio();
-  startCalibration();
+$("switchBtn").addEventListener("click", () => {
+  show("setupScreen");
+  renderPlayers();
 });
+
+// ---------- History ----------
+function pctClass(pct) {
+  return pct >= 75 ? "hi" : pct >= 50 ? "mid" : "low";
+}
+function fmtDate(t) {
+  const d = new Date(t);
+  return d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " +
+         d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+function fmtDur(sec) {
+  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+
+let historyReturn = "setupScreen"; // where Back goes
+
+function openHistory(fromScreen) {
+  const p = selectedPlayer();
+  if (!p) return;
+  historyReturn = fromScreen || "setupScreen";
+  const sessions = p.sessions || [];
+
+  $("histTitle").textContent = p.name;
+  $("hCount").textContent = sessions.length;
+  if (sessions.length === 0) {
+    $("hBest").textContent = "--";
+    $("hAvg").textContent = "--";
+  } else {
+    const best = Math.max(...sessions.map(s => s.pct));
+    const avg = Math.round(sessions.reduce((a, s) => a + s.pct, 0) / sessions.length);
+    $("hBest").textContent = best + "%";
+    $("hAvg").textContent = avg + "%";
+  }
+
+  // Chart: last 20 sessions, oldest to newest, bar height = eyes-up %
+  const chart = $("histChart");
+  chart.textContent = "";
+  const chartSessions = sessions.slice(-20);
+  for (const s of chartSessions) {
+    const bar = document.createElement("div");
+    bar.className = "bar " + (s.pct >= 75 ? "" : s.pct >= 50 ? "mid" : "low");
+    bar.style.height = Math.max(4, s.pct) + "%";
+    chart.appendChild(bar);
+  }
+  if (chartSessions.length === 0) {
+    const hint = document.createElement("p");
+    hint.className = "emptyHint";
+    hint.textContent = "No sessions yet. Run a drill to start the record.";
+    chart.appendChild(hint);
+  }
+  $("hAxisL").textContent = chartSessions.length > 1 ? "Oldest" : "";
+  $("hAxisR").textContent = chartSessions.length > 1 ? "Newest" : "";
+
+  // List: newest first
+  const list = $("histList");
+  list.textContent = "";
+  const ordered = sessions.slice().reverse();
+  for (const s of ordered) {
+    const row = document.createElement("div");
+    row.className = "histRow";
+
+    const when = document.createElement("div");
+    when.className = "when";
+    const d = document.createElement("div");
+    d.className = "d";
+    d.textContent = fmtDate(s.t);
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    sub.textContent = fmtDur(s.durSec) + " drill \u00b7 " + s.drops + " look" + (s.drops === 1 ? "" : "s") + " down \u00b7 best run " + (s.streakMs / 1000).toFixed(1) + "s";
+    when.appendChild(d);
+    when.appendChild(sub);
+    row.appendChild(when);
+
+    const pb = document.createElement("div");
+    pb.className = "pctBig " + pctClass(s.pct);
+    pb.textContent = s.pct + "%";
+    row.appendChild(pb);
+
+    list.appendChild(row);
+  }
+
+  show("historyScreen");
+}
+
+$("histFromResultBtn").addEventListener("click", () => openHistory("resultScreen"));
+$("histBackBtn").addEventListener("click", () => {
+  show(historyReturn);
+  if (historyReturn === "setupScreen") renderPlayers();
+});
+$("histClearBtn").addEventListener("click", () => {
+  const p = selectedPlayer();
+  if (!p) return;
+  if (!confirm("Clear all recorded sessions for " + p.name + "? Their calibration will be kept.")) return;
+  p.sessions = [];
+  savePlayers();
+  openHistory(historyReturn);
+});
+
+// ---------- Init ----------
+renderPlayers();
 </script>
 </body>
 </html>
