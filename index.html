@@ -66,6 +66,17 @@
     text-align: center; cursor: pointer;
   }
   .chip.sel { border-color: var(--accent); color: var(--accent); }
+  #durationRow .chip { font-size: 18px; padding: 10px 0; }
+
+  .nextBtn {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; padding: 12px 14px; margin-bottom: 8px;
+    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-family: inherit; font-size: 21px; font-weight: 700;
+    text-align: left; cursor: pointer;
+  }
+  .nextBtn .sub { font-size: 14px; color: var(--dim); font-weight: 700; }
+  .nextBtn .sub.warn { color: #e8c54a; }
 
   .toggle-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -293,6 +304,7 @@
       <h2>Drill length</h2>
       <div class="row" id="durationRow">
         <button class="chip" data-sec="30">0:30</button>
+        <button class="chip" data-sec="45">0:45</button>
         <button class="chip sel" data-sec="60">1:00</button>
         <button class="chip" data-sec="90">1:30</button>
         <button class="chip" data-sec="120">2:00</button>
@@ -377,10 +389,13 @@
     <div class="statCell"><div class="num" id="rUpTime">0s</div><div class="lbl">Total eyes-up time</div></div>
     <div class="statCell"><div class="num" id="rLost">0s</div><div class="lbl">Face not visible</div></div>
   </div>
-  <button class="big" id="againBtn">Run it again</button>
-  <div class="row" style="width:100%;max-width:420px;margin-top:10px">
+  <div class="card" style="margin-top:4px">
+    <h2>Next up: tap in</h2>
+    <div id="nextList"></div>
+  </div>
+  <div class="row" style="width:100%;max-width:420px">
     <button class="big ghost" id="histFromResultBtn" style="margin-top:0">History</button>
-    <button class="big ghost" id="switchBtn" style="margin-top:0">Switch player</button>
+    <button class="big ghost" id="switchBtn" style="margin-top:0">Setup</button>
   </div>
 </div>
 
@@ -718,7 +733,7 @@ $("startBtn").addEventListener("click", async () => {
   if (!ok) return;
   $("setupStatus").textContent = "";
   if (p.cal) {
-    startCountdown();
+    startCountdown(10);
   } else {
     startCalibrationFlow();
   }
@@ -952,8 +967,8 @@ function startCalibrationFlow() {
   prepRunning = false;
   $("calWho").textContent = p ? "Calibrating " + p.name : "";
   $("calPrompt").textContent = "Look at the phone";
-  $("calSub").textContent = "Tap the button, then you have 5 seconds to get into position.";
-  $("calBtn").textContent = "Capture: eyes up";
+  $("calSub").textContent = "One tap runs it all: 5 seconds to get in position, eyes-up capture, then eyes-down, then the round starts.";
+  $("calBtn").textContent = "Start calibration";
   $("calBtn").disabled = false;
   $("calStatus").textContent = "";
   $("calStatus").className = "status";
@@ -970,7 +985,7 @@ $("calBackBtn").addEventListener("click", () => {
 });
 
 function calBtnLabel() {
-  return calPhase === "up" ? "Capture: eyes up" : "Capture: eyes down";
+  return calPhase === "up" ? "Start calibration" : "Continue: eyes down";
 }
 function calFail(msg) {
   const st = $("calStatus");
@@ -986,42 +1001,47 @@ function calInfo(msg) {
   st.textContent = msg;
   st.className = "status";
 }
-
-$("calBtn").addEventListener("click", () => {
-  if (calCapturing || prepRunning) return;
-  // 5-second get-set countdown so the player can tap the button and step
-  // back into position before the capture starts.
+// Checks run right before each capture, once the player is in position.
+// Returns an error message, or null when it is safe to capture.
+function checkConditions() {
+  if (!faceVisible) return "No face in view when the timer ended. Step into the frame, then tap the button again.";
+  if (lightLevel !== null && lightLevel < LIGHT_MIN) return "Too dark to read the eyes. Add light on the player's face, then tap the button again.";
+  if (lastFaceSizePx !== null && lastFaceSizePx < FACE_MIN_PX) return "Too far from the camera. Move a couple feet closer, then tap the button again.";
+  return null;
+}
+// Count down on the button with a tick each second, then continue.
+function runPrep(seconds, label, then) {
   prepRunning = true;
   $("calBtn").disabled = true;
-  calInfo("Step back into position...");
-  let n = 5;
-  $("calBtn").textContent = "Get set \u00b7 " + n;
+  let n = seconds;
+  $("calBtn").textContent = label + " \u00b7 " + n;
   beep(520, 0.08, 0.15);
   const iv = setInterval(() => {
     n--;
     if (n > 0) {
-      $("calBtn").textContent = "Get set \u00b7 " + n;
+      $("calBtn").textContent = label + " \u00b7 " + n;
       beep(520, 0.08, 0.15);
     } else {
       clearInterval(iv);
       prepRunning = false;
-      // Validate conditions now that the player is in position
-      if (!faceVisible) {
-        calFail("No face in view when the timer ended. Step into the frame, then tap the button again.");
-        return;
-      }
-      if (lightLevel !== null && lightLevel < LIGHT_MIN) {
-        calFail("Too dark to read the eyes. Add light on the player's face, then tap the button again.");
-        return;
-      }
-      if (lastFaceSizePx !== null && lastFaceSizePx < FACE_MIN_PX) {
-        calFail("Too far from the camera. Move a couple feet closer, then tap the button again.");
-        return;
-      }
-      beep(1100, 0.2, 0.2);
-      runCapture();
+      then();
     }
   }, 1000);
+}
+
+// One tap runs the whole sequence: 5 seconds to get in position, capture
+// eyes-up, an automatic 3-second switch window, capture eyes-down, then a
+// 5-second countdown into the round. The button is only needed again if a
+// step fails.
+$("calBtn").addEventListener("click", () => {
+  if (calCapturing || prepRunning) return;
+  calInfo("Step back into position...");
+  runPrep(5, "Get set", () => {
+    const err = checkConditions();
+    if (err) { calFail(err); return; }
+    beep(1100, 0.2, 0.2);
+    runCapture();
+  });
 });
 
 function runCapture() {
@@ -1054,9 +1074,15 @@ function runCapture() {
       calPhase = "down";
       $("calPrompt").textContent = "Look down at your puck";
       $("calSub").textContent = "Drop your eyes to the puck the way you would mid-drill.";
-      $("calBtn").textContent = calBtnLabel();
-      calInfo("Eyes-up captured. Now capture eyes-down.");
+      calInfo("Eyes-up captured. Now look down at your puck.");
       beep(880, 0.1, 0.15);
+      // Continue to the eyes-down capture automatically: no second tap.
+      runPrep(3, "Look down", () => {
+        const err = checkConditions();
+        if (err) { calFail(err); return; }
+        beep(1100, 0.2, 0.2);
+        runCapture();
+      });
     } else {
       const headSep = avg.head - calBase.head;
       const gazeSep = avg.gaze - calBase.gaze;
@@ -1075,7 +1101,7 @@ function runCapture() {
       base = calBase;
       down = avg;
       beep(880, 0.1, 0.15);
-      startCountdown();
+      startCountdown(5);
     }
   };
   requestAnimationFrame(tick);
@@ -1096,13 +1122,14 @@ function downScore() {
 }
 
 // ---------- Countdown ----------
-function startCountdown() {
+function startCountdown(sec) {
+  const total = sec || 5;
   const p = selectedPlayer();
   // Load the player's saved calibration for this run
   if (p && p.cal) { base = p.cal.base; down = p.cal.down; }
   $("countWho").textContent = p ? p.name : "";
   show("countScreen");
-  let n = 3;
+  let n = total;
   $("countdownNum").textContent = n;
   beep(660, 0.12, 0.2);
   const iv = setInterval(() => {
@@ -1225,13 +1252,47 @@ function endDrill() {
     prevBest === null ? "First session on the books." :
     pct > prevBest ? "New personal best. Previous best was " + prevBest + "%." :
     "Personal best: " + Math.max(prevBest, pct) + "%.";
+  renderNextUp();
   show("resultScreen");
 }
 
-$("againBtn").addEventListener("click", () => {
-  initAudio();
-  startCountdown();
-});
+// Next-up list on the results screen: tap a name to start the next round.
+// Calibrated players get a 10-second timer to get situated; uncalibrated
+// players go through the one-tap calibration sequence, which ends with its
+// own 5-second countdown into the round.
+function renderNextUp() {
+  const list = $("nextList");
+  list.textContent = "";
+  for (const p of players) {
+    const btn = document.createElement("button");
+    btn.className = "nextBtn";
+    const nm = document.createElement("span");
+    nm.textContent = p.name;
+    btn.appendChild(nm);
+    const sub = document.createElement("span");
+    const best = bestPct(p);
+    if (p.cal) {
+      sub.className = "sub";
+      sub.textContent = best !== null ? "best " + best + "%" : "ready";
+    } else {
+      sub.className = "sub warn";
+      sub.textContent = "needs calibration";
+    }
+    btn.appendChild(sub);
+    btn.addEventListener("click", () => {
+      initAudio();
+      selectedId = p.id;
+      savePlayers();
+      if (p.cal) {
+        startCountdown(10);
+      } else {
+        startCalibrationFlow();
+      }
+    });
+    list.appendChild(btn);
+  }
+}
+
 $("switchBtn").addEventListener("click", () => {
   show("setupScreen");
   renderPlayers();
