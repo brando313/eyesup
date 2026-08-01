@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Heads Up Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ice: #0b1220;
+    --steel: #16202e;
+    --line: #24344a;
+    --text: #eaf2f8;
+    --dim: #8fa3b8;
+    --up: #2fd36b;
+    --down: #f04a3e;
+    --accent: #6fd0ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ice);
+    color: var(--text);
+    font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  .screen {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .screen.active { display: flex; }
+
+  h1 {
+    font-weight: 900; font-size: 44px; letter-spacing: 1px; line-height: 1;
+    text-transform: uppercase; margin-top: 12px;
+  }
+  h1 .up { color: var(--up); }
+  .tag { color: var(--dim); font-size: 18px; margin: 6px 0 20px; text-align: center; }
+
+  .card {
+    background: var(--steel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    width: 100%; max-width: 420px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 15px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin-bottom: 10px;
+  }
+  .card ol { padding-left: 20px; font-size: 18px; line-height: 1.5; font-weight: 500; }
+  .card ol li { margin-bottom: 4px; }
+
+  .row { display: flex; gap: 8px; }
+  .chip {
+    flex: 1; padding: 12px 0;
+    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-family: inherit; font-size: 20px; font-weight: 700;
+    text-align: center; cursor: pointer;
+  }
+  .chip.sel { border-color: var(--accent); color: var(--accent); }
+
+  .toggle-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 20px; font-weight: 700;
+  }
+
+  button.big {
+    width: 100%; max-width: 420px;
+    padding: 18px 0;
+    border: none; border-radius: 14px;
+    background: var(--accent); color: #06121c;
+    font-family: inherit; font-size: 26px; font-weight: 900;
+    letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; margin-top: 4px;
+  }
+  button.big:disabled { opacity: 0.5; }
+  button.ghost {
+    background: transparent; color: var(--dim);
+    border: 1px solid var(--line);
+  }
+
+  .status { color: var(--dim); font-size: 17px; margin-top: 12px; text-align: center; min-height: 22px; }
+
+  /* Video */
+  #videoWrap {
+    position: relative; width: 100%; max-width: 420px;
+    aspect-ratio: 3/4;
+    background: #000; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  #faceBadge {
+    position: absolute; top: 10px; left: 10px;
+    padding: 4px 10px; border-radius: 8px;
+    background: rgba(0,0,0,0.6);
+    font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  }
+
+  /* Calibration */
+  .calPrompt { font-size: 34px; font-weight: 900; text-transform: uppercase; text-align: center; line-height: 1.1; }
+  .calSub { color: var(--dim); font-size: 18px; text-align: center; margin: 8px 0 16px; }
+  #calBar {
+    width: 100%; max-width: 420px; height: 12px;
+    background: var(--steel); border-radius: 6px; overflow: hidden; margin-bottom: 16px;
+  }
+  #calFill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+
+  /* Drill */
+  #drillScreen { padding: 0; justify-content: center; transition: background 0.15s; }
+  #drillScreen.state-up { background: #0d2a18; }
+  #drillScreen.state-down { background: #33110e; }
+  #drillScreen.state-none { background: #2a2410; }
+  #stateWord {
+    font-size: min(22vw, 110px); font-weight: 900; letter-spacing: 2px;
+    text-transform: uppercase; line-height: 1;
+  }
+  .state-up #stateWord { color: var(--up); }
+  .state-down #stateWord { color: var(--down); }
+  .state-none #stateWord { color: #e8c54a; font-size: min(12vw, 60px); }
+  #drillTimer {
+    font-size: min(30vw, 150px); font-weight: 900; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  #livePct { font-size: 30px; font-weight: 700; color: var(--dim); margin-top: 6px; }
+  #livePct b { color: var(--text); font-size: 36px; }
+  #drillThumb {
+    position: fixed; right: 12px; bottom: max(12px, env(safe-area-inset-bottom));
+    width: 96px; aspect-ratio: 3/4;
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+    opacity: 0.85;
+  }
+  #stopBtn {
+    position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom));
+    padding: 10px 18px; border-radius: 10px;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--line);
+    color: var(--dim); font-family: inherit; font-size: 18px; font-weight: 700;
+  }
+  #countdownNum {
+    font-size: min(50vw, 260px); font-weight: 900; color: var(--accent); line-height: 1;
+  }
+
+  /* Results */
+  .bigStat { text-align: center; margin: 10px 0 4px; }
+  .bigStat .num { font-size: 96px; font-weight: 900; line-height: 1; color: var(--up); }
+  .bigStat .lbl { font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+  .statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; margin: 14px 0; }
+  .statCell { background: var(--steel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center; }
+  .statCell .num { font-size: 34px; font-weight: 900; }
+  .statCell .lbl { font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+  #verdict { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="screen active" id="setupScreen">
+  <h1>Heads <span class="up">Up</span> Trainer</h1>
+  <p class="tag">Stickhandle with your eyes off the puck</p>
+  <div class="card">
+    <h2>Setup</h2>
+    <ol>
+      <li>Prop the phone at the player's eye height</li>
+      <li>Player stands 4 to 8 feet away, facing the screen</li>
+      <li>Good light on the face, no bright window behind</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2>Drill length</h2>
+    <div class="row" id="durationRow">
+      <button class="chip" data-sec="30">0:30</button>
+      <button class="chip sel" data-sec="60">1:00</button>
+      <button class="chip" data-sec="90">1:30</button>
+      <button class="chip" data-sec="120">2:00</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="toggle-row">
+      <span>Beep when eyes drop</span>
+      <button class="chip" id="soundToggle" style="flex:0 0 90px">On</button>
+    </div>
+  </div>
+  <button class="big" id="startCamBtn">Start camera</button>
+  <p class="status" id="setupStatus">Loading face tracking...</p>
+</div>
+
+<!-- CALIBRATION -->
+<div class="screen" id="calScreen">
+  <p class="calPrompt" id="calPrompt">Look at the phone</p>
+  <p class="calSub" id="calSub">Stand ready with your stick. Hold still for a moment.</p>
+  <div id="calBar"><div id="calFill"></div></div>
+  <div id="videoWrap">
+    <video id="video" autoplay playsinline muted></video>
+    <span id="faceBadge">Looking for face...</span>
+  </div>
+  <button class="big" id="calBtn">Capture: eyes up</button>
+  <button class="big ghost" id="calBackBtn" style="margin-top:10px">Back</button>
+  <p class="status" id="calStatus"></p>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="screen" id="countScreen" style="justify-content:center">
+  <div id="countdownNum">3</div>
+</div>
+
+<!-- DRILL -->
+<div class="screen" id="drillScreen">
+  <div id="stateWord">Heads up</div>
+  <div id="drillTimer">1:00</div>
+  <div id="livePct">Eyes up <b>--%</b></div>
+  <div id="drillThumb"></div>
+  <button id="stopBtn">End early</button>
+</div>
+
+<!-- RESULTS -->
+<div class="screen" id="resultScreen">
+  <h1 style="font-size:34px">Session done</h1>
+  <div class="bigStat">
+    <div class="num" id="rPct">--%</div>
+    <div class="lbl">Time with eyes up</div>
+  </div>
+  <p id="verdict"></p>
+  <div class="statGrid">
+    <div class="statCell"><div class="num" id="rDrops">0</div><div class="lbl">Looks down</div></div>
+    <div class="statCell"><div class="num" id="rStreak">0s</div><div class="lbl">Longest eyes-up run</div></div>
+    <div class="statCell"><div class="num" id="rUpTime">0s</div><div class="lbl">Total eyes-up time</div></div>
+    <div class="statCell"><div class="num" id="rLost">0s</div><div class="lbl">Face not visible</div></div>
+  </div>
+  <button class="big" id="againBtn">Run it again</button>
+  <button class="big ghost" id="recalBtn" style="margin-top:10px">Recalibrate</button>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = id => document.getElementById(id);
+const screens = ["setupScreen","calScreen","countScreen","drillScreen","resultScreen"];
+function show(id) {
+  screens.forEach(s => $(s).classList.toggle("active", s === id));
+}
+
+// ---------- State ----------
+let landmarker = null;
+let stream = null;
+let running = false;          // detection loop on
+let drillActive = false;
+let durationSec = 60;
+let soundOn = true;
+
+let calUp = null;             // metric when looking at camera
+let calDown = null;           // metric when looking at puck
+let calPhase = "up";          // "up" | "down"
+let calSamples = [];
+let calCapturing = false;
+
+let smoothMetric = null;
+let faceVisible = false;
+let eyeState = "up";          // current classified state during drill
+let pendingState = null;
+let pendingSince = 0;
+
+let drill = null;             // per-session stats
+let wakeLock = null;
+
+// ---------- Audio ----------
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+function beep(freq, dur, vol) {
+  if (!soundOn || !audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.frequency.value = freq;
+  o.type = "square";
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + dur);
+}
+
+// ---------- Model ----------
+(async () => {
+  try {
+    const fileset = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    landmarker = await FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        delegate: "GPU"
+      },
+      runningMode: "VIDEO",
+      numFaces: 1
+    });
+    $("setupStatus").textContent = "";
+    $("startCamBtn").disabled = false;
+  } catch (e) {
+    $("setupStatus").textContent = "Face tracking failed to load. Check the connection and reload.";
+  }
+})();
+$("startCamBtn").disabled = true;
+
+// ---------- Setup controls ----------
+document.querySelectorAll("#durationRow .chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#durationRow .chip").forEach(b => b.classList.remove("sel"));
+    btn.classList.add("sel");
+    durationSec = parseInt(btn.dataset.sec, 10);
+  });
+});
+$("soundToggle").addEventListener("click", () => {
+  soundOn = !soundOn;
+  $("soundToggle").textContent = soundOn ? "On" : "Off";
+  $("soundToggle").classList.toggle("sel", soundOn);
+});
+$("soundToggle").classList.add("sel");
+
+$("startCamBtn").addEventListener("click", async () => {
+  initAudio();
+  $("setupStatus").textContent = "Requesting camera...";
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 960 }, height: { ideal: 1280 } },
+      audio: false
+    });
+    $("video").srcObject = stream;
+    await $("video").play();
+    running = true;
+    requestAnimationFrame(loop);
+    startCalibration();
+  } catch (e) {
+    $("setupStatus").textContent = "Camera blocked. Allow camera access and make sure the page is on https.";
+  }
+});
+
+// ---------- Metric ----------
+// Nose position relative to the eye line, normalized by face height.
+// Changes monotonically as the head pitches down toward the puck.
+// Calibration makes the sign and scale irrelevant.
+function computeMetric(lm) {
+  const eyeY = (lm[33].y + lm[263].y) / 2;   // outer eye corners
+  const noseY = lm[1].y;                      // nose tip
+  const topY = lm[10].y;                      // forehead
+  const chinY = lm[152].y;                    // chin
+  const faceH = Math.max(0.02, Math.abs(chinY - topY));
+  return (noseY - eyeY) / faceH;
+}
+
+function processFrame(ts) {
+  const video = $("video");
+  if (!landmarker || video.readyState < 2) return;
+  const res = landmarker.detectForVideo(video, ts);
+  if (res.faceLandmarks && res.faceLandmarks.length > 0) {
+    faceVisible = true;
+    const m = computeMetric(res.faceLandmarks[0]);
+    smoothMetric = smoothMetric === null ? m : smoothMetric * 0.7 + m * 0.3;
+    if (calCapturing) calSamples.push(m);
+  } else {
+    faceVisible = false;
+  }
+}
+
+let lastTs = 0;
+function loop(ts) {
+  if (!running) return;
+  processFrame(performance.now());
+  if ($("calScreen").classList.contains("active")) {
+    $("faceBadge").textContent = faceVisible ? "Face locked" : "Looking for face...";
+    $("faceBadge").style.color = faceVisible ? "var(--up)" : "var(--down)";
+  }
+  if (drillActive) drillTick(ts);
+  lastTs = ts;
+  requestAnimationFrame(loop);
+}
+
+// ---------- Calibration ----------
+function startCalibration() {
+  calPhase = "up";
+  calUp = null; calDown = null;
+  $("calPrompt").textContent = "Look at the phone";
+  $("calSub").textContent = "Stand ready with your stick. Eyes on the screen.";
+  $("calBtn").textContent = "Capture: eyes up";
+  $("calStatus").textContent = "";
+  $("calFill").style.width = "0%";
+  show("calScreen");
+  // Move the live video element into the calibration screen
+  $("videoWrap").appendChild($("video"));
+}
+
+$("calBackBtn").addEventListener("click", () => {
+  show("setupScreen");
+});
+
+$("calBtn").addEventListener("click", () => {
+  if (calCapturing) return;
+  if (!faceVisible) {
+    $("calStatus").textContent = "No face in view. Step into frame first.";
+    return;
+  }
+  calSamples = [];
+  calCapturing = true;
+  $("calBtn").disabled = true;
+  $("calStatus").textContent = "Hold it...";
+  const t0 = performance.now();
+  const capDur = 1800;
+  const tick = () => {
+    const p = Math.min(1, (performance.now() - t0) / capDur);
+    $("calFill").style.width = (p * 100) + "%";
+    if (p < 1) { requestAnimationFrame(tick); return; }
+    calCapturing = false;
+    $("calBtn").disabled = false;
+    $("calFill").style.width = "0%";
+    if (calSamples.length < 10) {
+      $("calStatus").textContent = "Lost the face. Try that capture again.";
+      return;
+    }
+    const avg = calSamples.reduce((a,b) => a+b, 0) / calSamples.length;
+    if (calPhase === "up") {
+      calUp = avg;
+      calPhase = "down";
+      $("calPrompt").textContent = "Look down at your puck";
+      $("calSub").textContent = "Drop your eyes to where the puck sits.";
+      $("calBtn").textContent = "Capture: eyes down";
+      $("calStatus").textContent = "Eyes-up captured.";
+      beep(880, 0.1, 0.15);
+    } else {
+      calDown = avg;
+      if (Math.abs(calDown - calUp) < 0.06) {
+        $("calStatus").textContent = "Too close to the eyes-up reading. Look further down at the puck, then recapture.";
+        return;
+      }
+      beep(880, 0.1, 0.15);
+      startCountdown();
+    }
+  };
+  requestAnimationFrame(tick);
+});
+
+// Score: 0 = eyes up baseline, 1 = eyes on puck baseline
+function eyeScore() {
+  if (smoothMetric === null || calUp === null || calDown === null) return 0;
+  return (smoothMetric - calUp) / (calDown - calUp);
+}
+
+// ---------- Countdown ----------
+function startCountdown() {
+  show("countScreen");
+  let n = 3;
+  $("countdownNum").textContent = n;
+  beep(660, 0.12, 0.2);
+  const iv = setInterval(() => {
+    n--;
+    if (n > 0) {
+      $("countdownNum").textContent = n;
+      beep(660, 0.12, 0.2);
+    } else {
+      clearInterval(iv);
+      beep(1100, 0.25, 0.25);
+      startDrill();
+    }
+  }, 1000);
+}
+
+// ---------- Drill ----------
+async function startDrill() {
+  drill = {
+    upMs: 0, downMs: 0, lostMs: 0,
+    drops: 0,
+    curUpStart: null, longestUpMs: 0,
+    startTime: performance.now(),
+    lastFrame: performance.now()
+  };
+  eyeState = "up";
+  pendingState = null;
+  drill.curUpStart = performance.now();
+  $("drillThumb").appendChild($("video"));
+  show("drillScreen");
+  drillActive = true;
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
+}
+
+function drillTick() {
+  const now = performance.now();
+  const dt = Math.min(100, now - drill.lastFrame);
+  drill.lastFrame = now;
+
+  const elapsed = now - drill.startTime;
+  const remain = Math.max(0, durationSec * 1000 - elapsed);
+
+  // Classify with hysteresis + 150ms dwell
+  let target;
+  if (!faceVisible) {
+    target = "none";
+  } else {
+    const s = eyeScore();
+    if (eyeState === "down") target = s < 0.4 ? "up" : "down";
+    else target = s > 0.6 ? "down" : "up";
+  }
+  if (target !== eyeState) {
+    if (pendingState !== target) { pendingState = target; pendingSince = now; }
+    else if (now - pendingSince > 150) {
+      // commit transition
+      if (eyeState === "up" && drill.curUpStart !== null) {
+        drill.longestUpMs = Math.max(drill.longestUpMs, now - drill.curUpStart);
+        drill.curUpStart = null;
+      }
+      if (target === "down") { drill.drops++; beep(300, 0.15, 0.25); }
+      if (target === "up") { drill.curUpStart = now; }
+      eyeState = target;
+      pendingState = null;
+    }
+  } else {
+    pendingState = null;
+  }
+
+  // Accumulate time
+  if (eyeState === "up") drill.upMs += dt;
+  else if (eyeState === "down") drill.downMs += dt;
+  else drill.lostMs += dt;
+
+  // Render
+  const scr = $("drillScreen");
+  scr.className = "screen active state-" + eyeState;
+  $("stateWord").textContent = eyeState === "up" ? "Heads up" : eyeState === "down" ? "Eyes down" : "Can't see face";
+  const rs = Math.ceil(remain / 1000);
+  $("drillTimer").textContent = Math.floor(rs / 60) + ":" + String(rs % 60).padStart(2, "0");
+  const tracked = drill.upMs + drill.downMs;
+  $("livePct").innerHTML = "Eyes up <b>" + (tracked > 0 ? Math.round(100 * drill.upMs / tracked) : "--") + "%</b>";
+
+  if (remain <= 0) endDrill();
+}
+
+$("stopBtn").addEventListener("click", endDrill);
+
+function endDrill() {
+  if (!drillActive) return;
+  drillActive = false;
+  if (eyeState === "up" && drill.curUpStart !== null) {
+    drill.longestUpMs = Math.max(drill.longestUpMs, performance.now() - drill.curUpStart);
+  }
+  try { wakeLock?.release(); } catch (e) {}
+  beep(880, 0.12, 0.2);
+  setTimeout(() => beep(880, 0.12, 0.2), 180);
+  setTimeout(() => beep(1320, 0.3, 0.25), 360);
+
+  const tracked = drill.upMs + drill.downMs;
+  const pct = tracked > 0 ? Math.round(100 * drill.upMs / tracked) : 0;
+  $("rPct").textContent = pct + "%";
+  $("rDrops").textContent = drill.drops;
+  $("rStreak").textContent = (drill.longestUpMs / 1000).toFixed(1) + "s";
+  $("rUpTime").textContent = (drill.upMs / 1000).toFixed(0) + "s";
+  $("rLost").textContent = (drill.lostMs / 1000).toFixed(0) + "s";
+  $("verdict").textContent =
+    pct >= 90 ? "Elite. Eyes barely left the screen." :
+    pct >= 75 ? "Strong session. Cut down those quick peeks." :
+    pct >= 50 ? "Getting there. Trust your hands more." :
+    "Lots of puck-watching. Slow the hands down and keep the eyes up.";
+  show("resultScreen");
+}
+
+$("againBtn").addEventListener("click", () => {
+  initAudio();
+  startCountdown();
+});
+$("recalBtn").addEventListener("click", () => {
+  initAudio();
+  startCalibration();
+});
+</script>
+</body>
+</html>
