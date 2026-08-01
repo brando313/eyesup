@@ -168,8 +168,14 @@
   #calFill { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
   #calWarn {
     color: #e8c54a; font-size: 17px; font-weight: 700;
-    text-align: center; min-height: 22px; margin-bottom: 6px;
+    text-align: center; min-height: 22px; margin-bottom: 2px;
   }
+  #calLive {
+    color: var(--dim); font-size: 16px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.5px;
+    text-align: center; min-height: 20px; margin-bottom: 6px;
+  }
+  #calLive .ok { color: var(--up); }
   .status.error { color: var(--down); font-weight: 700; }
   @media (orientation: landscape) {
     #calBody { flex-direction: row; justify-content: center; align-items: center; gap: 24px; height: 100%; }
@@ -321,6 +327,7 @@
       <p class="calPrompt" id="calPrompt">Look at the phone</p>
       <p class="calSub" id="calSub">Stand ready with your stick. Eyes on the screen.</p>
       <p id="calWarn"></p>
+      <p id="calLive"></p>
       <div id="calBar"><div id="calFill"></div></div>
       <button class="big" id="calBtn">Capture: eyes up</button>
       <button class="big ghost" id="calBackBtn" style="margin-top:10px">Back</button>
@@ -646,7 +653,10 @@ function beep(freq, dur, vol) {
       },
       runningMode: "VIDEO",
       numFaces: 1,
-      outputFaceBlendshapes: true
+      outputFaceBlendshapes: true,
+      minFaceDetectionConfidence: 0.4,
+      minFacePresenceConfidence: 0.3,
+      minTrackingConfidence: 0.3
     });
     modelReady = true;
     $("setupStatus").textContent = store.persistent ? "" :
@@ -828,11 +838,14 @@ function processFrame() {
     faceVisible = true;
     const s = computeSignals(lm, res.faceBlendshapes[0].categories);
     smoothHead = smoothHead === null ? s.head : smoothHead * 0.7 + s.head * 0.3;
-    // Freeze the gaze signal during blinks: closed lids read as "down".
-    if (s.blink < 0.5) {
+    // Looking down naturally lowers the eyelids, which the model reads as a
+    // partial blink. Only a near-full closure counts as a real blink here;
+    // anything less is valid down-gaze data. Quick true blinks that slip
+    // through are absorbed by the smoothing and the dwell timer.
+    if (s.blink < 0.8) {
       smoothGaze = smoothGaze === null ? s.gaze : smoothGaze * 0.7 + s.gaze * 0.3;
     }
-    if (calCapturing && s.blink < 0.5) calSamples.push({ head: s.head, gaze: s.gaze });
+    if (calCapturing && s.blink < 0.8) calSamples.push({ head: s.head, gaze: s.gaze });
   } else {
     missCount++;
     if (trackMode === "track" && missCount > 2 && crop) {
@@ -910,6 +923,21 @@ function loop() {
     } else {
       $("calWarn").textContent = "";
     }
+    // Live down-signal meter during the eyes-down step: shows whether the
+    // sensor registers the look-down before you commit a capture.
+    const live = $("calLive");
+    if (calPhase === "down" && calBase !== null && faceVisible && smoothHead !== null && smoothGaze !== null) {
+      const dH = smoothHead - calBase.head;
+      const dG = smoothGaze - calBase.gaze;
+      const good = dH >= 0.025 || dG >= 0.06;
+      live.innerHTML = "Down signal \u2014 head " +
+        (good && dH >= 0.025 ? "<span class=\"ok\">" + dH.toFixed(3) + "</span>" : dH.toFixed(3)) +
+        " (need 0.025) \u00b7 eyes " +
+        (good && dG >= 0.06 ? "<span class=\"ok\">" + dG.toFixed(2) + "</span>" : dG.toFixed(2)) +
+        " (need 0.06)";
+    } else {
+      live.textContent = "";
+    }
   }
   if (drillActive) drillTick();
   requestAnimationFrame(loop);
@@ -930,6 +958,7 @@ function startCalibrationFlow() {
   $("calStatus").textContent = "";
   $("calStatus").className = "status";
   $("calWarn").textContent = "";
+  $("calLive").textContent = "";
   $("calFill").style.width = "0%";
   show("calScreen");
   document.getElementById("videoWrap").appendChild($("camCanvas"));
@@ -1012,7 +1041,8 @@ function runCapture() {
     $("calBtn").textContent = calBtnLabel();
     $("calFill").style.width = "0%";
     if (calSamples.length < 10) {
-      calFail("Lost the face during the capture. Hold still, stay in frame, and tap the button to retry.");
+      calFail("Lost the face during the capture. Hold still, stay in frame, and tap the button to retry." +
+        (calPhase === "down" ? " If this keeps happening on eyes-down, raise the phone closer to eye height so the down-look is less extreme." : ""));
       return;
     }
     const avg = {
@@ -1030,8 +1060,10 @@ function runCapture() {
     } else {
       const headSep = avg.head - calBase.head;
       const gazeSep = avg.gaze - calBase.gaze;
-      if (headSep < 0.04 && gazeSep < 0.10) {
-        calFail("The eyes-down reading was almost the same as eyes-up, so the app can't tell them apart yet. Really look down at the puck this time, then tap the button to recapture.");
+      if (headSep < 0.025 && gazeSep < 0.06) {
+        calFail("The eyes-down reading was too close to eyes-up (head shift " + headSep.toFixed(3) +
+          ", eye shift " + gazeSep.toFixed(2) +
+          "). Watch the live reading below: it should climb when the player looks down. Then tap the button to recapture.");
         return;
       }
       // Save to the selected player
@@ -1056,8 +1088,8 @@ function downScore() {
   if (smoothHead === null || base === null || down === null) return 0;
   const headSep = down.head - base.head;
   const gazeSep = down.gaze - base.gaze;
-  const headScale = headSep > 0.04 ? headSep : 0.12;
-  const gazeScale = gazeSep > 0.10 ? gazeSep : 0.30;
+  const headScale = headSep > 0.025 ? headSep : 0.12;
+  const gazeScale = gazeSep > 0.06 ? gazeSep : 0.30;
   const hScore = (smoothHead - base.head) / headScale;
   const gScore = (smoothGaze - base.gaze) / gazeScale;
   return Math.max(hScore, gScore);
