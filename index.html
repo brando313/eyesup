@@ -666,7 +666,11 @@ function beep(freq, dur, vol) {
         modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
         delegate: "GPU"
       },
-      runningMode: "VIDEO",
+      // IMAGE mode detects the face fresh on every frame. VIDEO mode tracks
+      // the face from its position in the previous frame, which breaks when
+      // the auto-zoom crop moves: the face "teleports" in crop coordinates
+      // and the tracker loses it even though it is in plain view.
+      runningMode: "IMAGE",
       numFaces: 1,
       outputFaceBlendshapes: true,
       minFaceDetectionConfidence: 0.4,
@@ -774,24 +778,23 @@ function processFrame() {
   if (!landmarker || video.readyState < 2) return;
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw || !vh) return;
-  const ts = performance.now();
 
   let res = null;
   let srcIsCrop = false;
 
   if (autoZoom && trackMode === "track" && crop) {
     // TRACK: crop a square around the last known face position, upscale it
-    // onto the canvas, and run the landmarker on the enlarged face. At 8+
-    // feet this gives the model a face several times bigger than it would
-    // see in the full frame, which is what makes the gaze signal usable.
+    // onto the canvas, and detect on the enlarged face. At 8+ feet this
+    // gives the model a face several times bigger than the full frame
+    // would, which is what makes the gaze signal usable.
     const half = crop.size / 2;
     ctx.drawImage(video, crop.cx - half, crop.cy - half, crop.size, crop.size, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    res = landmarker.detectForVideo(camCanvas, ts);
+    res = landmarker.detect(camCanvas);
     srcIsCrop = true;
   } else {
     // SEARCH: scan the full frame to find or reacquire the face.
     drawFullFrame(video, vw, vh);
-    res = landmarker.detectForVideo(video, ts);
+    res = landmarker.detect(video);
   }
 
   const found = res && res.faceLandmarks && res.faceLandmarks.length > 0 &&
@@ -819,10 +822,12 @@ function processFrame() {
       fy = minY * vh; fh = (maxY - minY) * vh;
     }
 
-    // Where the crop wants to be: face centered, with room around it
+    // Where the crop wants to be: face centered, with room around it.
+    // 2.6x the face size leaves margin for the player to move between
+    // frames without slipping out of the crop.
     const faceSize = Math.max(fw, fh);
     const maxCrop = Math.min(vw, vh);
-    const targetSize = Math.min(maxCrop, Math.max(MIN_CROP, faceSize * 2.4));
+    const targetSize = Math.min(maxCrop, Math.max(MIN_CROP, faceSize * 2.6));
     let tcx = fx + fw / 2;
     let tcy = fy + fh / 2 - faceSize * 0.1; // bias up slightly to keep forehead in frame
     const tHalf = targetSize / 2;
@@ -833,14 +838,14 @@ function processFrame() {
       crop = { cx: tcx, cy: tcy, size: targetSize };
     } else {
       // Deadband plus smoothing: ignore tiny drift so the zoom does not
-      // breathe, then glide toward the target so movement is followed
-      // without jitter reaching the landmarks.
+      // breathe, then follow quickly enough to keep a moving player
+      // centered in the crop.
       const drift = Math.hypot(tcx - crop.cx, tcy - crop.cy);
       const sizeDrift = Math.abs(targetSize - crop.size);
-      const follow = drift > crop.size * 0.06 ? 0.2 : 0.05;
+      const follow = drift > crop.size * 0.05 ? 0.35 : 0.06;
       crop.cx += (tcx - crop.cx) * follow;
       crop.cy += (tcy - crop.cy) * follow;
-      crop.size += (targetSize - crop.size) * (sizeDrift > crop.size * 0.1 ? 0.15 : 0.03);
+      crop.size += (targetSize - crop.size) * (sizeDrift > crop.size * 0.1 ? 0.2 : 0.03);
       const half2 = crop.size / 2;
       crop.cx = Math.min(Math.max(crop.cx, half2), vw - half2);
       crop.cy = Math.min(Math.max(crop.cy, half2), vh - half2);
@@ -863,23 +868,25 @@ function processFrame() {
     if (calCapturing && s.blink < 0.8) calSamples.push({ head: s.head, gaze: s.gaze });
   } else {
     missCount++;
-    if (trackMode === "track" && missCount > 2 && crop) {
-      // Face slipped out of the crop: widen it before giving up, so a
-      // fast lateral move is caught without dropping to full search.
+    // A missed detection is now rare (fresh detection every frame), so
+    // react calmly: hold the crop for a few frames, then widen gently,
+    // and only fall back to a full-frame search after half a second.
+    if (trackMode === "track" && missCount >= 4 && crop) {
       const maxCrop = Math.min(vw, vh);
-      crop.size = Math.min(maxCrop, crop.size * 1.35);
+      crop.size = Math.min(maxCrop, crop.size * 1.25);
       const half3 = crop.size / 2;
       crop.cx = Math.min(Math.max(crop.cx, half3), vw - half3);
       crop.cy = Math.min(Math.max(crop.cy, half3), vh - half3);
+      zoomFactor = Math.min(vw, vh) / crop.size;
     }
-    if (missCount > 8) {
+    if (missCount > 15) {
       trackMode = "search";
       crop = null;
       zoomFactor = 1;
     }
-    // Only report the face as gone after a few missed frames, so a single
+    // Only report the face as gone after several missed frames, so a
     // dropped detection mid-move does not count against the player.
-    if (missCount > 4) faceVisible = false;
+    if (missCount > 5) faceVisible = false;
   }
 }
 
