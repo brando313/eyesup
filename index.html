@@ -71,12 +71,13 @@
   .nextBtn {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     width: 100%; padding: 12px 14px; margin-bottom: 8px;
-    background: var(--ice); border: 1px solid var(--line); border-radius: 10px;
-    color: var(--text); font-family: inherit; font-size: 21px; font-weight: 700;
+    background: var(--accent); border: none; border-radius: 10px;
+    color: #06121c; font-family: inherit; font-size: 21px; font-weight: 700;
     text-align: left; cursor: pointer;
   }
-  .nextBtn .sub { font-size: 14px; color: var(--dim); font-weight: 700; }
-  .nextBtn .sub.warn { color: #e8c54a; }
+  .nextBtn:active { filter: brightness(0.9); }
+  .nextBtn .sub { font-size: 14px; color: rgba(6,18,28,0.65); font-weight: 700; }
+  .nextBtn .sub.warn { color: #7a4a00; }
 
   .toggle-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -196,9 +197,25 @@
 
   /* Drill */
   #drillScreen { padding: 0; justify-content: center; transition: background 0.15s; overflow: hidden; }
-  #drillScreen.state-up { background: #0d2a18; }
-  #drillScreen.state-down { background: #33110e; }
-  #drillScreen.state-none { background: #2a2410; }
+  /* Full-brightness state colors, readable across the room at a glance */
+  #drillScreen.state-up { background: #1fdf63; }
+  #drillScreen.state-down { background: #ff382b; }
+  #drillScreen.state-none { background: #ffc933; }
+  #drillScreen.state-up #stateWord,
+  #drillScreen.state-up #drillTimer { color: #04220f; }
+  #drillScreen.state-down #stateWord,
+  #drillScreen.state-down #drillTimer { color: #ffffff; }
+  #drillScreen.state-none #stateWord,
+  #drillScreen.state-none #drillTimer { color: #3a2a00; }
+  #drillScreen.state-up #livePct { color: rgba(4,34,15,0.6); }
+  #drillScreen.state-up #livePct b { color: #04220f; }
+  #drillScreen.state-down #livePct { color: rgba(255,255,255,0.75); }
+  #drillScreen.state-down #livePct b { color: #ffffff; }
+  #drillScreen.state-none #livePct { color: rgba(58,42,0,0.65); }
+  #drillScreen.state-none #livePct b { color: #3a2a00; }
+  #drillScreen.state-up #drillWho { color: rgba(4,34,15,0.55); }
+  #drillScreen.state-down #drillWho { color: rgba(255,255,255,0.7); }
+  #drillScreen.state-none #drillWho { color: rgba(58,42,0,0.6); }
   #drillWho {
     position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     font-size: 18px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; color: var(--dim);
@@ -208,9 +225,7 @@
     font-size: clamp(40px, 18vmin, 120px); font-weight: 900; letter-spacing: 2px;
     text-transform: uppercase; line-height: 1; text-align: center;
   }
-  .state-up #stateWord { color: var(--up); }
-  .state-down #stateWord { color: var(--down); }
-  .state-none #stateWord { color: #e8c54a; font-size: clamp(28px, 10vmin, 60px); }
+  .state-none #stateWord { font-size: clamp(28px, 10vmin, 60px); }
   #drillTimer {
     font-size: clamp(60px, 32vmin, 170px); font-weight: 900; line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -231,8 +246,8 @@
   #stopBtn {
     position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
     padding: 10px 18px; border-radius: 10px;
-    background: rgba(0,0,0,0.4); border: 1px solid var(--line);
-    color: var(--dim); font-family: inherit; font-size: 18px; font-weight: 700;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(0,0,0,0.25);
+    color: rgba(255,255,255,0.9); font-family: inherit; font-size: 18px; font-weight: 700;
   }
   #countdownNum {
     font-size: clamp(120px, 55vmin, 280px); font-weight: 900; color: var(--accent); line-height: 1;
@@ -250,6 +265,8 @@
   .statCell .lbl { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
   #verdict { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
   #bestNote { font-size: 17px; color: var(--dim); text-align: center; margin-bottom: 8px; min-height: 20px; }
+  .resultActions { flex-direction: column; gap: 10px; }
+  @media (orientation: landscape) { .resultActions { flex-direction: row; gap: 8px; } }
 
   /* History */
   #histBody { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; }
@@ -393,7 +410,7 @@
     <h2>Next up: tap in</h2>
     <div id="nextList"></div>
   </div>
-  <div class="row" style="width:100%;max-width:420px">
+  <div class="row resultActions" style="width:100%;max-width:420px">
     <button class="big ghost" id="histFromResultBtn" style="margin-top:0">History</button>
     <button class="big ghost" id="switchBtn" style="margin-top:0">Setup</button>
   </div>
